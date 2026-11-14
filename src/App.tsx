@@ -16,8 +16,10 @@ import {
   type OrderFormInput,
   type OrderSubmissionPayload,
 } from './utils/order';
+import { playTransactionSuccessSound, unlockAudioContext } from './utils/sound';
 import { MenuCard } from './components/MenuCard';
 import { CheckoutPanel } from './components/CheckoutPanel';
+import { OrderSuccessModal } from './components/OrderSuccessModal';
 import heroBannerImg from './assets/images/kopi_dshyt_banner_1794658694371.jpg';
 
 const INITIAL_FORM: OrderFormInput = {
@@ -39,6 +41,7 @@ export default function App() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedReceipt, setSubmittedReceipt] = useState<OrderSubmissionPayload | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const totals = useMemo(() => calculateCartTotals(cart), [cart]);
 
@@ -80,6 +83,7 @@ export default function App() {
 
     setFieldErrors({});
     setIsSubmitting(true);
+    const audioCtx = unlockAudioContext();
 
     try {
       const response = await fetch(ORDER_SCRIPT_URL, {
@@ -92,7 +96,9 @@ export default function App() {
         throw new Error(`HTTP ${response.status}`);
       }
 
+      playTransactionSuccessSound(audioCtx);
       setSubmittedReceipt(validation.payload);
+      setShowSuccessModal(true);
       setCart({});
       setForm(INITIAL_FORM);
     } catch {
@@ -105,6 +111,7 @@ export default function App() {
   }
 
   function handleStartNewOrder() {
+    setShowSuccessModal(false);
     setSubmittedReceipt(null);
     setSubmitError(null);
     setFieldErrors({});
@@ -389,6 +396,13 @@ export default function App() {
           <p>Pre-order harian untuk pengantaran area kampus &amp; kos sekitar.</p>
         </div>
       </footer>
+
+      <OrderSuccessModal
+        receipt={submittedReceipt}
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onStartNewOrder={handleStartNewOrder}
+      />
     </div>
   );
 }
