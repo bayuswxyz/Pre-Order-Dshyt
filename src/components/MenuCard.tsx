@@ -67,26 +67,26 @@ export function MenuCard({ item, quantity, onChangeQuantity }: MenuCardProps) {
           </p>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3 pt-3 border-t border-[#F0ECE6]">
-          <span className="font-mono text-[15px] font-semibold tabular-nums text-[#9A3412]">
+        <div className="mt-4 flex items-center justify-between gap-2 pt-3 border-t border-[#F0ECE6]">
+          <span className="font-mono text-sm sm:text-[15px] font-semibold tabular-nums text-[#9A3412] whitespace-nowrap shrink-0">
             {formatRupiah(item.price)}
           </span>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 shrink-0">
             {quantity > 0 ? (
               <>
                 <button
                   type="button"
                   onClick={() => onChangeQuantity(item, -1)}
                   aria-label={`Kurangi ${item.name}`}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[#E2DCD3] bg-[#FAF8F5] text-[#1A1614] transition-colors hover:bg-[#EFEAE2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] cursor-pointer"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#E2DCD3] bg-[#FAF8F5] text-[#1A1614] transition-colors hover:bg-[#EFEAE2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] cursor-pointer"
                 >
                   <Minus className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <span
                   aria-label={`Jumlah ${item.name}`}
                   data-testid={`qty-${item.id}`}
-                  className="w-7 text-center font-mono text-sm font-semibold tabular-nums text-[#1A1614]"
+                  className="w-5 text-center font-mono text-sm font-semibold tabular-nums text-[#1A1614]"
                 >
                   {quantity}
                 </span>
@@ -94,7 +94,7 @@ export function MenuCard({ item, quantity, onChangeQuantity }: MenuCardProps) {
                   type="button"
                   onClick={() => onChangeQuantity(item, 1)}
                   aria-label={`Tambah ${item.name}`}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-[#C2410C] text-white transition-colors hover:bg-[#9A3412] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] cursor-pointer"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#C2410C] text-white transition-colors hover:bg-[#9A3412] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] cursor-pointer"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -104,7 +104,7 @@ export function MenuCard({ item, quantity, onChangeQuantity }: MenuCardProps) {
                 type="button"
                 onClick={() => onChangeQuantity(item, 1)}
                 aria-label={`Tambah ${item.name}`}
-                className="inline-flex h-11 items-center gap-1.5 rounded-lg bg-[#1A1614] px-4 text-sm font-medium text-white transition-colors hover:bg-[#C2410C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] whitespace-nowrap shrink-0 cursor-pointer"
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#1A1614] px-3.5 text-sm font-medium text-white transition-colors hover:bg-[#C2410C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 <span>Tambah</span>

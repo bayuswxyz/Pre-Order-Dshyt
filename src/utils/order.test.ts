@@ -39,21 +39,21 @@ test('updateCartQuantity increments, decrements, and removes zero-quantity items
 
 test('calculateCartTotals computes totals and exact Google Sheets payload format', () => {
   const espresso = MENU_ITEMS[0]; // 10.000
-  const blanc = MENU_ITEMS[4]; // Blanc DSHYT, 15.000
+  const antiBlanc = MENU_ITEMS[4]; // Anti Blanc Dshyt, 18.000
 
   let cart: CartState = {};
   assert.equal(calculateCartTotals(cart).summaryText, 'Belum ada menu yang dipilih.');
   assert.equal(calculateCartTotals(cart).formattedTotal, 'Rp 0');
 
   cart = updateCartQuantity(cart, espresso, 2);
-  cart = updateCartQuantity(cart, blanc, 1);
+  cart = updateCartQuantity(cart, antiBlanc, 1);
 
   const totals = calculateCartTotals(cart);
   assert.equal(totals.totalItems, 3);
-  assert.equal(totals.totalPrice, 35000);
-  assert.equal(totals.formattedTotal, 'Rp 35.000');
-  assert.equal(totals.summaryText, 'Espresso Pouch (2x), Blanc DSHYT (1x)');
-  assert.equal(totals.payloadPesanan, 'Espresso Pouch (2), Blanc DSHYT (1)');
+  assert.equal(totals.totalPrice, 38000);
+  assert.equal(totals.formattedTotal, 'Rp 38.000');
+  assert.equal(totals.summaryText, 'Espresso Pouch (2x), Anti Blanc Dshyt (1x)');
+  assert.equal(totals.payloadPesanan, 'Espresso Pouch (2), Anti Blanc Dshyt (1)');
 });
 
 test('getDeliveryFieldConfig toggles label and placeholder cleanly', () => {

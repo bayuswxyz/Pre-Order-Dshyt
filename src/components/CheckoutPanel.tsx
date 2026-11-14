@@ -136,10 +136,10 @@ export function CheckoutPanel({
       aria-label="Ringkasan Pesanan dan Checkout"
       className="rounded-xl border border-[#E7E2DA] bg-white p-5 sm:p-6 shadow-[0_8px_30px_-12px_rgba(26,22,20,0.06)]"
     >
-      <div className="flex items-center justify-between gap-3 pb-4 border-b border-[#EFEAE2]">
-        <div className="flex items-center gap-2.5">
-          <ShoppingBag className="h-5 w-5 text-[#C2410C]" aria-hidden="true" />
-          <h2 className="font-[family-name:var(--font-display)] text-xl font-bold text-[#1A1614]">
+      <div className="flex items-center justify-between gap-2 pb-4 border-b border-[#EFEAE2]">
+        <div className="flex items-center gap-2 min-w-0">
+          <ShoppingBag className="h-5 w-5 shrink-0 text-[#C2410C]" aria-hidden="true" />
+          <h2 className="font-[family-name:var(--font-display)] text-lg font-bold text-[#1A1614] whitespace-nowrap">
             Ringkasan Pesanan
           </h2>
         </div>
@@ -148,7 +148,7 @@ export function CheckoutPanel({
             type="button"
             onClick={onClearCart}
             aria-label="Kosongkan keranjang"
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#786D65] transition-colors hover:bg-[#FAF8F5] hover:text-[#B91C1C] cursor-pointer"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#786D65] transition-colors hover:bg-[#FAF8F5] hover:text-[#B91C1C] whitespace-nowrap shrink-0 cursor-pointer"
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Kosongkan</span>
