@@ -13,7 +13,7 @@ export interface MenuItem {
 }
 
 export const ORDER_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbxVNETTL0v76xkiqFje0D9mWl8ICYYuL0o1gxcVjSkyz-31PuOQ5LBVf1aOr7jk801jEA/exec';
+  'https://script.google.com/macros/s/AKfycbzQZA2XcpyosyDhVSVntL7eFiDcvXiZ2LkcV7S0os6CdKGbBViGPzTZqS3muodp37xG/exec';
 
 export const MENU_CATEGORIES: MenuCategory[] = [
   'Semua',
