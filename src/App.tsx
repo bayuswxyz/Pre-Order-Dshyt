@@ -18,6 +18,7 @@ import {
 } from './utils/order';
 import { MenuCard } from './components/MenuCard';
 import { CheckoutPanel } from './components/CheckoutPanel';
+import heroBannerImg from './assets/images/kopi_dshyt_banner_1794658694371.jpg';
 
 const INITIAL_FORM: OrderFormInput = {
   nama: '',
@@ -201,7 +202,7 @@ export default function App() {
             <div className="lg:col-span-6">
               <div className="h-full min-h-[240px] sm:min-h-[300px] overflow-hidden rounded-xl border border-[#E7E2DA] bg-[#EFEAE2]">
                 <img
-                  src="/src/assets/images/kopi_dshyt_banner_1794658694371.jpg"
+                  src={heroBannerImg}
                   alt="Es kopi jeruk dan kopi susu khas Kopi D'SHYT di atas meja batu travertine"
                   className="h-full w-full object-cover"
                 />

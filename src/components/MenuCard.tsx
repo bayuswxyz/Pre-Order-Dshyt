@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Coffee, Minus, Plus } from 'lucide-react';
 import type { MenuItem } from '../data/menu';
+import { FALLBACK_IMAGES } from '../data/fallbackImages';
 import { formatRupiah } from '../utils/order';
 
 const failedPrimaryUrls = new Set<string>();
@@ -17,7 +18,7 @@ export function MenuCard({ item, quantity, onChangeQuantity }: MenuCardProps) {
   );
 
   const activeImageSrc =
-    imageStage === 'primary' ? item.imageUrl : item.fallbackImageUrl;
+    imageStage === 'primary' ? item.imageUrl : FALLBACK_IMAGES[item.fallbackKey];
 
   return (
     <article
