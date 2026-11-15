@@ -26,7 +26,7 @@ const envOrderScriptUrl =
 
 export const ORDER_SCRIPT_URL =
   envOrderScriptUrl?.trim() ||
-  'https://script.google.com/macros/s/AKfycbwJyFipGful5btXCnOh6KLKqiURSYLk3lu2zLyUCv_ZQeY_TMB1c5UpZfn5JPrECVeB/exec';
+  'https://script.google.com/macros/s/AKfycbwJnv23sou4NFRtJUHnMzhI029VULFMhqAsLOJlOcXqQ-ZJSRxJV7dE_adyCZUwDOPE/exec';
 
 export const MENU_CATEGORIES: MenuCategory[] = [
   'Semua',

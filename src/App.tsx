@@ -219,7 +219,7 @@ export default function App() {
             <div className="flex flex-col justify-between lg:col-span-6 lg:py-2">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9A3412]">
-                  Pre-Order Harian · Kampus &amp; Sekitar
+                  PRE ORDER DOPAMINE HARIAN 😂 · Kampus &amp; Sekitar
                 </p>
                 <h1 className="mt-3 font-[family-name:var(--font-display)] text-[clamp(2.25rem,4vw,3.5rem)] font-bold leading-[1.08] tracking-tight text-[#1A1614] [text-wrap:balance]">
                   Ngopi Lah nak, Nanti sakit 😂
