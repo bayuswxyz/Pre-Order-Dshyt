@@ -1,16 +1,20 @@
-import { type FormEvent } from 'react';
+import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
 import {
   AlertCircle,
+  Banknote,
   CheckCircle2,
+  ImagePlus,
   Loader2,
   Minus,
   Plus,
+  QrCode,
   ShoppingBag,
   Trash2,
+  X,
 } from 'lucide-react';
-import type { MenuItem } from '../data/menu';
 import {
   calculateCartTotals,
+  formatCustomizationSummary,
   formatRupiah,
   getDeliveryFieldConfig,
   type CartState,
@@ -18,16 +22,23 @@ import {
   type OrderFormInput,
   type OrderSubmissionPayload,
 } from '../utils/order';
+import {
+  formatFileSize,
+  formatPaymentMethodLabel,
+  readPaymentProofAsBase64,
+  type UploadedPaymentProof,
+} from '../utils/payment';
+import { QrPaymentCard } from './QrPaymentCard';
 
 interface CheckoutPanelProps {
   cart: CartState;
-  menuItems: MenuItem[];
   form: OrderFormInput;
+  previewReference: string;
   fieldErrors: Partial<Record<keyof OrderFormInput | 'cart', string>>;
   submitError: string | null;
   isSubmitting: boolean;
   submittedReceipt: OrderSubmissionPayload | null;
-  onChangeQuantity: (item: MenuItem, delta: number) => void;
+  onChangeVariantQuantity: (variantKey: string, delta: number) => void;
   onClearCart: () => void;
   onFieldChange: <K extends keyof OrderFormInput>(field: K, value: OrderFormInput[K]) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -36,13 +47,13 @@ interface CheckoutPanelProps {
 
 export function CheckoutPanel({
   cart,
-  menuItems,
   form,
+  previewReference,
   fieldErrors,
   submitError,
   isSubmitting,
   submittedReceipt,
-  onChangeQuantity,
+  onChangeVariantQuantity,
   onClearCart,
   onFieldChange,
   onSubmit,
@@ -50,7 +61,40 @@ export function CheckoutPanel({
 }: CheckoutPanelProps) {
   const totals = calculateCartTotals(cart);
   const deliveryConfig = getDeliveryFieldConfig(form.pengiriman);
-  const menuByKey = new Map(menuItems.map((m) => [m.cartKey, m]));
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isReadingFile, setIsReadingFile] = useState(false);
+  const [fileReadError, setFileReadError] = useState<string | null>(null);
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setFileReadError(null);
+    setIsReadingFile(true);
+
+    try {
+      const proof: UploadedPaymentProof = await readPaymentProofAsBase64(file);
+      onFieldChange('paymentProof', proof);
+    } catch (error) {
+      onFieldChange('paymentProof', null);
+      setFileReadError(
+        error instanceof Error ? error.message : 'Gagal memproses file bukti transfer.'
+      );
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } finally {
+      setIsReadingFile(false);
+    }
+  }
+
+  function handleRemoveProof() {
+    setFileReadError(null);
+    onFieldChange('paymentProof', null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }
 
   if (submittedReceipt) {
     return (
@@ -103,11 +147,37 @@ export function CheckoutPanel({
               </dd>
             </div>
           )}
+          <div className="flex justify-between gap-4">
+            <dt className="text-[#786D65]">Metode Bayar</dt>
+            <dd className="font-medium text-right text-[#1A1614]">
+              {formatPaymentMethodLabel(submittedReceipt.metodePembayaran)}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-[#786D65]">Status Bayar</dt>
+            <dd className="font-semibold text-right text-[#15803D]">
+              {submittedReceipt.statusPembayaran}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-[#786D65]">Kode Referensi</dt>
+            <dd className="font-mono text-right text-[#1A1614] tabular-nums">
+              {submittedReceipt.kodeReferensi}
+            </dd>
+          </div>
+          {submittedReceipt.fileName && (
+            <div className="flex justify-between gap-4">
+              <dt className="text-[#786D65]">Bukti Transfer</dt>
+              <dd className="font-mono text-xs text-right text-[#1A1614] truncate max-w-[200px]">
+                {submittedReceipt.fileName}
+              </dd>
+            </div>
+          )}
           <div className="pt-3 border-t border-[#EFEAE2]">
             <dt className="text-xs font-semibold uppercase tracking-wider text-[#786D65]">
               Menu Dipesan
             </dt>
-            <dd className="mt-1.5 text-sm font-medium text-[#1A1614]">
+            <dd className="mt-1.5 text-sm font-medium leading-relaxed text-[#1A1614]">
               {submittedReceipt.pesanan}
             </dd>
           </div>
@@ -119,6 +189,19 @@ export function CheckoutPanel({
           </div>
         </dl>
 
+        {submittedReceipt.metodePembayaran === 'QRIS' ? (
+          <div className="mt-5 rounded-lg border border-[#D8E2D8] bg-[#F5F9F5] p-3.5 text-xs leading-relaxed text-[#1E4620]">
+            Bukti pembayaran QRIS (<span className="font-mono">{submittedReceipt.fileName}</span>)
+            sudah terkirim. Status pesanan Anda: <span className="font-semibold">Menunggu Konfirmasi</span>.
+          </div>
+        ) : (
+          <div className="mt-5 rounded-lg border border-[#E7E2DA] bg-[#FAF8F5] p-3.5 text-xs leading-relaxed text-[#5E544E]">
+            Siapkan uang tunai sebesar{' '}
+            <span className="font-mono font-bold text-[#1A1614]">{submittedReceipt.total}</span>{' '}
+            untuk dibayarkan saat pesanan tiba / diambil (COD).
+          </div>
+        )}
+
         <button
           type="button"
           onClick={onStartNewOrder}
@@ -129,6 +212,8 @@ export function CheckoutPanel({
       </section>
     );
   }
+
+  const proofError = fileReadError || fieldErrors.paymentProof;
 
   return (
     <section
@@ -156,55 +241,57 @@ export function CheckoutPanel({
         )}
       </div>
 
-      {/* Cart Summary */}
+      {/* Cart Summary with Customizations */}
       <div className="py-4 border-b border-[#EFEAE2]">
         {totals.entries.length === 0 ? (
           <p data-testid="empty-cart-text" className="text-sm text-[#786D65]">
-            Belum ada menu yang dipilih. Tekan tombol Tambah pada daftar menu di samping.
+            Belum ada menu yang dipilih. Tekan tombol Tambah pada daftar menu untuk mengatur es,
+            gula, dan ekstra shot.
           </p>
         ) : (
-          <ul className="space-y-3" data-testid="cart-items-list">
-            {totals.entries.map((entry) => {
-              const menuItem = menuByKey.get(entry.cartKey);
-              return (
-                <li
-                  key={entry.cartKey}
-                  className="flex items-center justify-between gap-3 text-sm"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-[#1A1614] truncate">{entry.name}</p>
-                    <p className="font-mono text-xs text-[#786D65] tabular-nums">
-                      {formatRupiah(entry.price)} × {entry.qty}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {menuItem && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onChangeQuantity(menuItem, -1)}
-                          aria-label={`Kurangi ${entry.name} di keranjang`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#E7E2DA] bg-[#FAF8F5] text-[#1A1614] hover:bg-[#EFEAE2] cursor-pointer"
-                        >
-                          <Minus className="h-3.5 w-3.5" aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onChangeQuantity(menuItem, 1)}
-                          aria-label={`Tambah ${entry.name} di keranjang`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#E7E2DA] bg-[#FAF8F5] text-[#1A1614] hover:bg-[#EFEAE2] cursor-pointer"
-                        >
-                          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                    <span className="w-20 text-right font-mono text-xs font-semibold tabular-nums text-[#1A1614]">
-                      {formatRupiah(entry.price * entry.qty)}
+          <ul className="space-y-3.5" data-testid="cart-items-list">
+            {totals.entries.map((entry) => (
+              <li
+                key={entry.variantKey}
+                className="flex items-start justify-between gap-3 text-sm pb-3 border-b border-[#F5F1EB] last:border-b-0 last:pb-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-[#1A1614]">{entry.name}</p>
+                  <p className="mt-0.5 text-xs leading-snug text-[#5E544E]">
+                    {formatCustomizationSummary(entry.customization)}
+                  </p>
+                  <p className="mt-1 font-mono text-xs text-[#786D65] tabular-nums">
+                    {formatRupiah(entry.price)} × {entry.qty}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onChangeVariantQuantity(entry.variantKey, -1)}
+                      aria-label={`Kurangi ${entry.name}`}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#E7E2DA] bg-[#FAF8F5] text-[#1A1614] hover:bg-[#EFEAE2] cursor-pointer"
+                    >
+                      <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                    <span className="w-5 text-center font-mono text-xs font-semibold tabular-nums text-[#1A1614]">
+                      {entry.qty}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => onChangeVariantQuantity(entry.variantKey, 1)}
+                      aria-label={`Tambah ${entry.name}`}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#E7E2DA] bg-[#FAF8F5] text-[#1A1614] hover:bg-[#EFEAE2] cursor-pointer"
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
                   </div>
-                </li>
-              );
-            })}
+                  <span className="font-mono text-xs font-semibold tabular-nums text-[#1A1614]">
+                    {formatRupiah(entry.price * entry.qty)}
+                  </span>
+                </div>
+              </li>
+            ))}
           </ul>
         )}
 
@@ -221,7 +308,7 @@ export function CheckoutPanel({
         </div>
       </div>
 
-      {/* Customer & Delivery Form */}
+      {/* Customer, Delivery & Payment Form */}
       <form onSubmit={onSubmit} noValidate className="mt-4 space-y-3">
         <h3 className="text-sm font-semibold text-[#1A1614]">
           Informasi Pemesan &amp; Pengiriman
@@ -288,7 +375,7 @@ export function CheckoutPanel({
 
         <div>
           <label htmlFor="pengiriman" className="block text-sm font-medium text-[#1A1614] mb-1">
-            Tipe Pengiriman
+            Metode Pengiriman
           </label>
           <select
             id="pengiriman"
@@ -297,8 +384,9 @@ export function CheckoutPanel({
             onChange={(e) => onFieldChange('pengiriman', e.target.value as DeliveryType)}
             className="w-full h-10 rounded-lg border border-[#DDD6CC] bg-[#FAF8F5] px-3.5 text-sm text-[#1A1614] transition-colors focus:border-[#C2410C] focus:bg-white focus:outline-none cursor-pointer"
           >
-            <option value="Kampus">Kampus (In-Campus)</option>
-            <option value="Luar Kampus">Luar Kampus (Off-Campus / Kos)</option>
+            <option value="Delivery (Kampus)">Delivery — Area Kampus</option>
+            <option value="Delivery (Luar Kampus)">Delivery — Luar Kampus / Kos</option>
+            <option value="Ambil di Tempat">Ambil di Tempat (Pick-Up)</option>
           </select>
         </div>
 
@@ -317,7 +405,7 @@ export function CheckoutPanel({
             value={form.alamat}
             onChange={(e) => onFieldChange('alamat', e.target.value)}
             placeholder={deliveryConfig.placeholder}
-            required
+            required={deliveryConfig.required}
             aria-invalid={Boolean(fieldErrors.alamat)}
             className={`w-full h-10 rounded-lg border px-3.5 text-sm text-[#1A1614] placeholder:text-[#9C9189] bg-[#FAF8F5] transition-colors focus:bg-white focus:outline-none ${
               fieldErrors.alamat
@@ -340,14 +428,189 @@ export function CheckoutPanel({
             type="text"
             value={form.catatan}
             onChange={(e) => onFieldChange('catatan', e.target.value)}
-            placeholder="Contoh: Kurang manis / Titip di pos satpam"
+            placeholder="Contoh: Titip di pos satpam / hubungi saat tiba"
             className="w-full h-10 rounded-lg border border-[#DDD6CC] bg-[#FAF8F5] px-3.5 text-sm text-[#1A1614] placeholder:text-[#9C9189] transition-colors focus:border-[#C2410C] focus:bg-white focus:outline-none"
           />
         </div>
 
+        {/* Metode Pembayaran: Cash / COD OR QRIS */}
+        <div className="pt-1">
+          <span
+            id="payment-method-label"
+            className="block text-sm font-medium text-[#1A1614] mb-1.5"
+          >
+            Metode Pembayaran
+          </span>
+          <div
+            role="radiogroup"
+            aria-labelledby="payment-method-label"
+            className="grid grid-cols-2 gap-2.5"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={form.metodePembayaran === 'COD'}
+              data-testid="payment-cod-btn"
+              onClick={() => {
+                setFileReadError(null);
+                onFieldChange('metodePembayaran', 'COD');
+              }}
+              className={`flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors cursor-pointer ${
+                form.metodePembayaran === 'COD'
+                  ? 'border-[#C2410C] bg-[#FFF8F3] text-[#1A1614]'
+                  : 'border-[#DDD6CC] bg-[#FAF8F5] text-[#5E544E] hover:border-[#C2410C]/45 hover:bg-white'
+              }`}
+            >
+              <Banknote
+                className={`h-4 w-4 shrink-0 mt-0.5 ${
+                  form.metodePembayaran === 'COD' ? 'text-[#C2410C]' : 'text-[#786D65]'
+                }`}
+                aria-hidden="true"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold leading-tight text-[#1A1614]">Cash / COD</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-[#786D65]">
+                  Bayar di tempat
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              role="radio"
+              aria-checked={form.metodePembayaran === 'QRIS'}
+              data-testid="payment-qris-btn"
+              onClick={() => onFieldChange('metodePembayaran', 'QRIS')}
+              className={`flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors cursor-pointer ${
+                form.metodePembayaran === 'QRIS'
+                  ? 'border-[#C2410C] bg-[#FFF8F3] text-[#1A1614]'
+                  : 'border-[#DDD6CC] bg-[#FAF8F5] text-[#5E544E] hover:border-[#C2410C]/45 hover:bg-white'
+              }`}
+            >
+              <QrCode
+                className={`h-4 w-4 shrink-0 mt-0.5 ${
+                  form.metodePembayaran === 'QRIS' ? 'text-[#C2410C]' : 'text-[#786D65]'
+                }`}
+                aria-hidden="true"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold leading-tight text-[#1A1614]">QRIS</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-[#786D65]">
+                  Scan &amp; unggah bukti
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {form.metodePembayaran === 'COD' ? (
+            <div
+              data-testid="payment-cod-info"
+              className="mt-2.5 rounded-lg border border-[#E7E2DA] bg-[#FAF8F5] px-3.5 py-2.5 text-xs leading-relaxed text-[#5E544E]"
+            >
+              Status pembayaran tercatat sebagai <span className="font-semibold text-[#1A1614]">COD</span>.
+              Siapkan uang tunai{' '}
+              <span className="font-mono font-semibold text-[#1A1614]">
+                {totals.totalPrice > 0 ? totals.formattedTotal : 'sesuai total pesanan'}
+              </span>{' '}
+              saat pesanan diterima.
+            </div>
+          ) : (
+            <div className="mt-2.5 space-y-2.5">
+              <QrPaymentCard
+                formattedAmount={totals.formattedTotal}
+                reference={previewReference}
+                compact
+              />
+
+              {/* Upload Bukti Transfer / Screenshot QRIS */}
+              <div
+                className={`rounded-xl border p-3.5 ${
+                  proofError
+                    ? 'border-[#DC2626] bg-[#FEF2F2]/60'
+                    : 'border-[#E7E2DA] bg-[#FAF8F5]'
+                }`}
+              >
+                <label
+                  htmlFor="payment-proof-input"
+                  className="block text-xs font-semibold text-[#1A1614]"
+                >
+                  Unggah Bukti Transfer / Screenshot QRIS
+                </label>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-[#5E544E]">
+                  Setelah scan QRIS di atas, unggah screenshot pembayaran agar pesanan segera
+                  dikonfirmasi.
+                </p>
+
+                <input
+                  ref={fileInputRef}
+                  id="payment-proof-input"
+                  data-testid="payment-proof-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="sr-only"
+                />
+
+                {!form.paymentProof ? (
+                  <button
+                    type="button"
+                    disabled={isReadingFile}
+                    onClick={() => fileInputRef.current?.click()}
+                    data-testid="upload-proof-btn"
+                    className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#C2410C]/55 bg-white px-3.5 py-3 text-xs font-semibold text-[#9A3412] transition-colors hover:bg-[#FFF8F3] cursor-pointer"
+                  >
+                    {isReadingFile ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                        <span>Memproses gambar...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                        <span>Pilih Screenshot Bukti Pembayaran</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div
+                    data-testid="payment-proof-preview"
+                    className="mt-2.5 flex items-center gap-3 rounded-lg border border-[#E7E2DA] bg-white p-2.5"
+                  >
+                    <img
+                      src={form.paymentProof.previewUrl}
+                      alt="Pratinjau bukti pembayaran QRIS"
+                      className="h-12 w-12 shrink-0 rounded-md border border-[#EFEAE2] object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-[#1A1614] truncate">
+                        {form.paymentProof.fileName}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11px] text-[#15803D]">
+                        Siap dikirim · {formatFileSize(form.paymentProof.fileSize)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveProof}
+                      aria-label="Hapus bukti pembayaran"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#E7E2DA] bg-[#FAF8F5] text-[#5E544E] hover:bg-[#EFEAE2] hover:text-[#B91C1C] cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
+
+                {proofError && (
+                  <p className="mt-1.5 text-xs font-medium text-[#B91C1C]">{proofError}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isReadingFile}
           data-testid="submit-order-btn"
           className="mt-1 inline-flex w-full h-11 items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412] disabled:opacity-65 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] cursor-pointer"
         >
@@ -357,7 +620,7 @@ export function CheckoutPanel({
               <span>Sedang mengirim pesanan...</span>
             </>
           ) : (
-            <span>Kirim Pre-Order Sekarang</span>
+            <span>Kirim Pesanan</span>
           )}
         </button>
       </form>

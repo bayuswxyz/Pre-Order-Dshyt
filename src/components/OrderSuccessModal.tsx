@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { CheckCircle2, Coffee, Heart, X } from 'lucide-react';
+import { Banknote, CheckCircle2, Coffee, Heart, QrCode, X } from 'lucide-react';
 import type { OrderSubmissionPayload } from '../utils/order';
+import { formatPaymentMethodLabel } from '../utils/payment';
 
 interface OrderSuccessModalProps {
   receipt: OrderSubmissionPayload | null;
@@ -41,7 +42,7 @@ export function OrderSuccessModal({
         aria-labelledby="order-success-modal-title"
         data-testid="order-success-modal"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-[#E7E2DA] bg-[#FAF8F5] p-6 sm:p-8 shadow-[0_24px_60px_-16px_rgba(26,22,20,0.45)]"
+        className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl border border-[#E7E2DA] bg-[#FAF8F5] p-5 sm:p-6 shadow-[0_24px_60px_-16px_rgba(26,22,20,0.45)]"
       >
         <button
           type="button"
@@ -53,43 +54,50 @@ export function OrderSuccessModal({
         </button>
 
         <div className="flex flex-col items-center text-center">
-          <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-[#FFF5EB] border border-[#F39C12]/35 text-[#C2410C]">
-            <Coffee className="h-10 w-10" strokeWidth={1.75} aria-hidden="true" />
-            <span className="absolute -right-2 -bottom-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#15803D] text-white shadow-sm">
-              <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+          <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FFF5EB] border border-[#F39C12]/35 text-[#C2410C]">
+            <Coffee className="h-8 w-8" strokeWidth={1.75} aria-hidden="true" />
+            <span className="absolute -right-1.5 -bottom-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-[#15803D] text-white shadow-sm">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
             </span>
           </div>
 
-          <p className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#15803D]">
+          <p className="mt-3.5 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#15803D]">
             <Heart className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
             <span>Pesanan Berhasil Terkirim</span>
           </p>
 
           <h2
             id="order-success-modal-title"
-            className="mt-2 font-[family-name:var(--font-display)] text-3xl sm:text-4xl font-bold leading-tight text-[#1A1614] [text-wrap:balance]"
+            className="mt-1.5 font-[family-name:var(--font-display)] text-2xl sm:text-3xl font-bold leading-tight text-[#1A1614] [text-wrap:balance]"
           >
             Terimakasih ya sayang!
           </h2>
 
-          <p className="mt-3 max-w-[40ch] text-sm sm:text-base leading-relaxed text-[#5E544E]">
+          <p className="mt-2 max-w-[40ch] text-sm leading-relaxed text-[#5E544E]">
             Pesanan atas nama <span className="font-semibold text-[#1A1614]">{receipt.nama}</span>{' '}
             sudah masuk ke antrean Kopi D&apos;SHYT dan siap kami racik.
           </p>
         </div>
 
-        <div className="mt-6 rounded-xl border border-[#E7E2DA] bg-white p-4 sm:p-5 text-sm">
-          <div className="flex items-start justify-between gap-4 pb-3 border-b border-[#F0ECE6]">
+        <div className="mt-4 rounded-xl border border-[#E7E2DA] bg-white p-3.5 sm:p-4 text-sm">
+          <div className="flex items-start justify-between gap-4 pb-2.5 border-b border-[#F0ECE6]">
             <span className="text-[#786D65] shrink-0">Menu</span>
             <span className="font-medium text-right text-[#1A1614]">{receipt.pesanan}</span>
           </div>
-          <div className="flex items-start justify-between gap-4 py-3 border-b border-[#F0ECE6]">
+          <div className="flex items-start justify-between gap-4 py-2.5 border-b border-[#F0ECE6]">
             <span className="text-[#786D65] shrink-0">Pengiriman</span>
             <span className="font-medium text-right text-[#1A1614]">
               {receipt.pengiriman} · {receipt.alamat}
             </span>
           </div>
-          <div className="flex items-center justify-between gap-4 pt-3">
+          <div className="flex items-start justify-between gap-4 py-2.5 border-b border-[#F0ECE6]">
+            <span className="text-[#786D65] shrink-0">Pembayaran</span>
+            <span className="font-medium text-right text-[#1A1614]">
+              {formatPaymentMethodLabel(receipt.metodePembayaran)} ·{' '}
+              <span className="text-[#15803D] font-semibold">{receipt.statusPembayaran}</span>
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4 pt-2.5">
             <span className="font-semibold text-[#1A1614]">Total Pembayaran</span>
             <span className="font-mono text-lg font-bold tabular-nums text-[#9A3412]">
               {receipt.total}
@@ -97,7 +105,27 @@ export function OrderSuccessModal({
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
+        {receipt.metodePembayaran === 'QRIS' ? (
+          <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-[#D8E2D8] bg-[#F5F9F5] p-3.5 text-xs leading-relaxed text-[#1E4620]">
+            <QrCode className="h-4 w-4 shrink-0 text-[#15803D] mt-0.5" aria-hidden="true" />
+            <span>
+              Bukti transfer QRIS (<span className="font-mono">{receipt.fileName}</span>) berhasil
+              dikirim. Status: <span className="font-semibold">{receipt.statusPembayaran}</span>.
+            </span>
+          </div>
+        ) : (
+          <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-[#E7E2DA] bg-white p-3.5 text-xs leading-relaxed text-[#5E544E]">
+            <Banknote className="h-4 w-4 shrink-0 text-[#C2410C] mt-0.5" aria-hidden="true" />
+            <span>
+              Pembayaran <span className="font-semibold text-[#1A1614]">Cash / COD</span>. Siapkan
+              uang sejumlah{' '}
+              <span className="font-mono font-bold text-[#1A1614]">{receipt.total}</span> saat
+              pesanan diterima.
+            </span>
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-col sm:flex-row gap-3">
           <button
             type="button"
             onClick={onClose}

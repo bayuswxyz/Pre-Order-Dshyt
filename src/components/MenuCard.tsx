@@ -9,10 +9,16 @@ const failedPrimaryUrls = new Set<string>();
 interface MenuCardProps {
   item: MenuItem;
   quantity: number;
-  onChangeQuantity: (item: MenuItem, delta: number) => void;
+  onOpenCustomize: (item: MenuItem) => void;
+  onDecrementItem: (item: MenuItem) => void;
 }
 
-export function MenuCard({ item, quantity, onChangeQuantity }: MenuCardProps) {
+export function MenuCard({
+  item,
+  quantity,
+  onOpenCustomize,
+  onDecrementItem,
+}: MenuCardProps) {
   const [imageStage, setImageStage] = useState<'primary' | 'fallback' | 'icon'>(() =>
     failedPrimaryUrls.has(item.imageUrl) ? 'fallback' : 'primary'
   );
@@ -77,7 +83,7 @@ export function MenuCard({ item, quantity, onChangeQuantity }: MenuCardProps) {
               <>
                 <button
                   type="button"
-                  onClick={() => onChangeQuantity(item, -1)}
+                  onClick={() => onDecrementItem(item)}
                   aria-label={`Kurangi ${item.name}`}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#E2DCD3] bg-[#FAF8F5] text-[#1A1614] transition-colors hover:bg-[#EFEAE2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] cursor-pointer"
                 >
@@ -92,7 +98,7 @@ export function MenuCard({ item, quantity, onChangeQuantity }: MenuCardProps) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => onChangeQuantity(item, 1)}
+                  onClick={() => onOpenCustomize(item)}
                   aria-label={`Tambah ${item.name}`}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#C2410C] text-white transition-colors hover:bg-[#9A3412] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] cursor-pointer"
                 >
@@ -102,7 +108,7 @@ export function MenuCard({ item, quantity, onChangeQuantity }: MenuCardProps) {
             ) : (
               <button
                 type="button"
-                onClick={() => onChangeQuantity(item, 1)}
+                onClick={() => onOpenCustomize(item)}
                 aria-label={`Tambah ${item.name}`}
                 className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#1A1614] px-3.5 text-sm font-medium text-white transition-colors hover:bg-[#C2410C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] whitespace-nowrap shrink-0 cursor-pointer"
               >

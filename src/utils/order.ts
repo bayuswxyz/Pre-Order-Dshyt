@@ -1,12 +1,48 @@
 import type { MenuCategory, MenuItem } from '../data/menu';
+import {
+  generateOrderReference,
+  getPaymentStatusForMethod,
+  type UploadedPaymentProof,
+} from './payment';
 
-export type DeliveryType = 'Kampus' | 'Luar Kampus';
+export type DeliveryType =
+  | 'Delivery (Kampus)'
+  | 'Delivery (Luar Kampus)'
+  | 'Ambil di Tempat';
+
+export type PaymentMethod = 'COD' | 'QRIS';
+export type PaymentStatus = 'COD' | 'Menunggu Konfirmasi';
+
+export type IceLevel = 'Normal Ice' | 'Less Ice' | 'No Ice';
+export type SugarLevel = 'Normal Sugar' | 'Less Sugar' | 'No Sugar';
+
+export const ICE_LEVELS: IceLevel[] = ['Normal Ice', 'Less Ice', 'No Ice'];
+export const SUGAR_LEVELS: SugarLevel[] = ['Normal Sugar', 'Less Sugar', 'No Sugar'];
+export const EXTRA_SHOT_PRICE = 9000;
+
+export interface DrinkCustomization {
+  ice: IceLevel;
+  sugar: SugarLevel;
+  extraShot: boolean;
+  note: string;
+}
+
+export const DEFAULT_CUSTOMIZATION: DrinkCustomization = {
+  ice: 'Normal Ice',
+  sugar: 'Normal Sugar',
+  extraShot: false,
+  note: '',
+};
 
 export interface CartEntry {
+  variantKey: string;
+  menuId: string;
   name: string;
   cartKey: string;
   qty: number;
+  basePrice: number;
   price: number;
+  customization: DrinkCustomization;
 }
 
 export type CartState = Record<string, CartEntry>;
@@ -16,7 +52,9 @@ export interface OrderFormInput {
   whatsapp: string;
   pengiriman: DeliveryType;
   alamat: string;
+  metodePembayaran: PaymentMethod;
   catatan: string;
+  paymentProof: UploadedPaymentProof | null;
 }
 
 export interface OrderSubmissionPayload {
@@ -24,9 +62,31 @@ export interface OrderSubmissionPayload {
   whatsapp: string;
   pesanan: string;
   total: string;
+  totalNumeric: number;
   pengiriman: DeliveryType;
   alamat: string;
   catatan: string;
+  metodePembayaran: PaymentMethod;
+  statusPembayaran: PaymentStatus;
+  fileData: string;
+  fileName: string;
+  fileType: string;
+  kodeReferensi: string;
+}
+
+export interface AppsScriptOrderRequest {
+  nama: string;
+  whatsapp: string;
+  pesanan: string;
+  total: string;
+  pengiriman: DeliveryType;
+  alamat: string;
+  catatan: string;
+  metodePembayaran: PaymentMethod;
+  statusPembayaran: PaymentStatus;
+  fileData: string;
+  fileName: string;
+  fileType: string;
 }
 
 export interface CartTotals {
@@ -50,30 +110,119 @@ export function formatRupiah(amount: number): string {
   return `Rp ${safe.toLocaleString('id-ID')}`;
 }
 
-export function updateCartQuantity(
+export function normalizeCustomization(
+  input?: Partial<DrinkCustomization>
+): DrinkCustomization {
+  return {
+    ice: input?.ice && ICE_LEVELS.includes(input.ice) ? input.ice : 'Normal Ice',
+    sugar: input?.sugar && SUGAR_LEVELS.includes(input.sugar) ? input.sugar : 'Normal Sugar',
+    extraShot: Boolean(input?.extraShot),
+    note: input?.note ? input.note.trim() : '',
+  };
+}
+
+export function calculateCustomizedUnitPrice(
+  basePrice: number,
+  customization: Pick<DrinkCustomization, 'extraShot'>
+): number {
+  return basePrice + (customization.extraShot ? EXTRA_SHOT_PRICE : 0);
+}
+
+export function buildCartVariantKey(
+  cartKey: string,
+  customization: DrinkCustomization
+): string {
+  const normalized = normalizeCustomization(customization);
+  const noteKey = normalized.note.toLowerCase();
+  return `${cartKey}__${normalized.ice}__${normalized.sugar}__${
+    normalized.extraShot ? 'extra' : 'std'
+  }__${noteKey}`;
+}
+
+export function formatCustomizationSummary(customization: DrinkCustomization): string {
+  const normalized = normalizeCustomization(customization);
+  const parts: string[] = [normalized.ice, normalized.sugar];
+  if (normalized.extraShot) {
+    parts.push('Extra Shot Espresso');
+  }
+  if (normalized.note) {
+    parts.push(`Catatan: ${normalized.note}`);
+  }
+  return parts.join(', ');
+}
+
+export function addCustomizedCartItem(
   cart: CartState,
-  item: Pick<MenuItem, 'name' | 'cartKey' | 'price'>,
+  item: Pick<MenuItem, 'id' | 'name' | 'cartKey' | 'price'>,
+  customizationInput: Partial<DrinkCustomization> = DEFAULT_CUSTOMIZATION,
+  quantity: number = 1
+): CartState {
+  const safeQty = Math.max(1, Math.floor(quantity));
+  const customization = normalizeCustomization(customizationInput);
+  const variantKey = buildCartVariantKey(item.cartKey, customization);
+  const existing = cart[variantKey];
+  const unitPrice = calculateCustomizedUnitPrice(item.price, customization);
+
+  return {
+    ...cart,
+    [variantKey]: {
+      variantKey,
+      menuId: item.id,
+      name: item.name,
+      cartKey: item.cartKey,
+      qty: (existing?.qty ?? 0) + safeQty,
+      basePrice: item.price,
+      price: unitPrice,
+      customization,
+    },
+  };
+}
+
+export function updateCartVariantQuantity(
+  cart: CartState,
+  variantKey: string,
   delta: number
 ): CartState {
-  const current = cart[item.cartKey];
-  const nextQty = Math.max(0, (current?.qty ?? 0) + delta);
+  const current = cart[variantKey];
+  if (!current) return cart;
 
+  const nextQty = Math.max(0, current.qty + delta);
   if (nextQty === 0) {
-    if (!current) return cart;
     const next = { ...cart };
-    delete next[item.cartKey];
+    delete next[variantKey];
     return next;
   }
 
   return {
     ...cart,
-    [item.cartKey]: {
-      name: item.name,
-      cartKey: item.cartKey,
+    [variantKey]: {
+      ...current,
       qty: nextQty,
-      price: item.price,
     },
   };
+}
+
+export function decrementMenuItemLatestVariant(
+  cart: CartState,
+  menuId: string
+): CartState {
+  const matchingKeys = Object.keys(cart).filter(
+    (key) => cart[key]?.menuId === menuId && cart[key].qty > 0
+  );
+  if (matchingKeys.length === 0) return cart;
+
+  const targetKey = matchingKeys[matchingKeys.length - 1];
+  return updateCartVariantQuantity(cart, targetKey, -1);
+}
+
+export function getMenuQuantityInCart(cart: CartState, menuId: string): number {
+  let total = 0;
+  for (const entry of Object.values(cart)) {
+    if (entry.menuId === menuId && entry.qty > 0) {
+      total += entry.qty;
+    }
+  }
+  return total;
 }
 
 export function calculateCartTotals(cart: CartState): CartTotals {
@@ -97,16 +246,17 @@ export function calculateCartTotals(cart: CartState): CartTotals {
   for (const entry of entries) {
     totalItems += entry.qty;
     totalPrice += entry.qty * entry.price;
-    summaryParts.push(`${entry.cartKey} (${entry.qty}x)`);
-    payloadParts.push(`${entry.cartKey} (${entry.qty})`);
+    const customLabel = formatCustomizationSummary(entry.customization);
+    summaryParts.push(`${entry.cartKey} (${entry.qty}x - ${customLabel})`);
+    payloadParts.push(`${entry.cartKey} (${entry.qty}x: ${customLabel})`);
   }
 
   return {
     totalItems,
     totalPrice,
     formattedTotal: formatRupiah(totalPrice),
-    summaryText: summaryParts.join(', '),
-    payloadPesanan: payloadParts.join(', '),
+    summaryText: summaryParts.join(' | '),
+    payloadPesanan: payloadParts.join(' | '),
     entries,
   };
 }
@@ -114,17 +264,28 @@ export function calculateCartTotals(cart: CartState): CartTotals {
 export function getDeliveryFieldConfig(deliveryType: DeliveryType): {
   label: string;
   placeholder: string;
+  required: boolean;
 } {
-  if (deliveryType === 'Kampus') {
+  if (deliveryType === 'Delivery (Kampus)') {
     return {
       label: 'Detail Lokasi / Gedung Kampus',
       placeholder: 'Contoh: Fakultas Teknik / Gedung Kuliah Lt. 2',
+      required: true,
+    };
+  }
+
+  if (deliveryType === 'Delivery (Luar Kampus)') {
+    return {
+      label: 'Alamat Lengkap Kos / Rumah',
+      placeholder: 'Contoh: Jl. Gerilya No. XX (Kos pagar hijau)',
+      required: true,
     };
   }
 
   return {
-    label: 'Alamat Lengkap Kos / Rumah',
-    placeholder: 'Contoh: Jl. Gerilya No. XX (Kos pagar hijau)',
+    label: 'Jam / Catatan Pengambilan (Opsional)',
+    placeholder: 'Contoh: Diambil jam 13.00 di booth Kopi D\'SHYT',
+    required: false,
   };
 }
 
@@ -149,7 +310,8 @@ export function filterMenuItems(
 
 export function validateOrderForm(
   cart: CartState,
-  form: OrderFormInput
+  form: OrderFormInput,
+  kodeReferensi?: string
 ): ValidationResult {
   const totals = calculateCartTotals(cart);
   const fieldErrors: Partial<Record<keyof OrderFormInput | 'cart', string>> = {};
@@ -166,8 +328,17 @@ export function validateOrderForm(
   const nama = form.nama.trim();
   const whatsappRaw = form.whatsapp.trim();
   const whatsappDigits = whatsappRaw.replace(/[^\d]/g, '');
-  const alamat = form.alamat.trim();
+  const deliveryConfig = getDeliveryFieldConfig(form.pengiriman);
+  const alamatInput = form.alamat.trim();
+  const resolvedAlamat =
+    alamatInput ||
+    (form.pengiriman === 'Ambil di Tempat'
+      ? "Ambil langsung di booth Kopi D'SHYT"
+      : '');
   const catatan = form.catatan.trim();
+  const metodePembayaran: PaymentMethod = form.metodePembayaran === 'QRIS' ? 'QRIS' : 'COD';
+  const statusPembayaran = getPaymentStatusForMethod(metodePembayaran);
+  const resolvedRef = kodeReferensi?.trim() || generateOrderReference();
 
   if (!nama) {
     fieldErrors.nama = 'Nama lengkap wajib diisi.';
@@ -179,11 +350,16 @@ export function validateOrderForm(
     fieldErrors.whatsapp = 'Masukkan nomor WhatsApp yang valid (9–15 digit).';
   }
 
-  if (!alamat) {
+  if (deliveryConfig.required && !alamatInput) {
     fieldErrors.alamat =
-      form.pengiriman === 'Kampus'
+      form.pengiriman === 'Delivery (Kampus)'
         ? 'Detail lokasi atau gedung kampus wajib diisi.'
         : 'Alamat lengkap kos atau rumah wajib diisi.';
+  }
+
+  if (metodePembayaran === 'QRIS' && !form.paymentProof?.fileData) {
+    fieldErrors.paymentProof =
+      'Silakan unggah screenshot / bukti transfer QRIS terlebih dahulu.';
   }
 
   const firstError = Object.values(fieldErrors)[0];
@@ -195,6 +371,8 @@ export function validateOrderForm(
     };
   }
 
+  const proof = metodePembayaran === 'QRIS' ? form.paymentProof : null;
+
   return {
     valid: true,
     fieldErrors: {},
@@ -203,9 +381,35 @@ export function validateOrderForm(
       whatsapp: whatsappRaw,
       pesanan: totals.payloadPesanan,
       total: totals.formattedTotal,
+      totalNumeric: totals.totalPrice,
       pengiriman: form.pengiriman,
-      alamat,
+      alamat: resolvedAlamat,
       catatan,
+      metodePembayaran,
+      statusPembayaran,
+      fileData: proof?.fileData ?? '',
+      fileName: proof?.fileName ?? '',
+      fileType: proof?.fileType ?? '',
+      kodeReferensi: resolvedRef,
     },
+  };
+}
+
+export function buildOrderRequestBody(
+  payload: OrderSubmissionPayload
+): AppsScriptOrderRequest {
+  return {
+    nama: payload.nama,
+    whatsapp: payload.whatsapp,
+    pesanan: payload.pesanan,
+    total: payload.total,
+    pengiriman: payload.pengiriman,
+    alamat: payload.alamat,
+    catatan: payload.catatan,
+    metodePembayaran: payload.metodePembayaran,
+    statusPembayaran: payload.statusPembayaran,
+    fileData: payload.fileData,
+    fileName: payload.fileName,
+    fileType: payload.fileType,
   };
 }

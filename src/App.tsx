@@ -8,26 +8,35 @@ import {
   type MenuItem,
 } from './data/menu';
 import {
+  addCustomizedCartItem,
+  buildOrderRequestBody,
   calculateCartTotals,
+  decrementMenuItemLatestVariant,
   filterMenuItems,
-  updateCartQuantity,
+  getMenuQuantityInCart,
+  updateCartVariantQuantity,
   validateOrderForm,
   type CartState,
+  type DrinkCustomization,
   type OrderFormInput,
   type OrderSubmissionPayload,
 } from './utils/order';
+import { generateOrderReference } from './utils/payment';
 import { playTransactionSuccessSound, unlockAudioContext } from './utils/sound';
 import { MenuCard } from './components/MenuCard';
 import { CheckoutPanel } from './components/CheckoutPanel';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
+import { CustomizeMenuModal } from './components/CustomizeMenuModal';
 import heroBannerImg from './assets/images/kopi_dshyt_banner_1794658694371.jpg';
 
 const INITIAL_FORM: OrderFormInput = {
   nama: '',
   whatsapp: '',
-  pengiriman: 'Kampus',
+  pengiriman: 'Delivery (Kampus)',
   alamat: '',
+  metodePembayaran: 'COD',
   catatan: '',
+  paymentProof: null,
 };
 
 export default function App() {
@@ -35,6 +44,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Semua');
   const [searchQuery, setSearchQuery] = useState('');
   const [form, setForm] = useState<OrderFormInput>(INITIAL_FORM);
+  const [draftReference, setDraftReference] = useState<string>(() => generateOrderReference());
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<keyof OrderFormInput | 'cart', string>>
   >({});
@@ -42,6 +52,7 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedReceipt, setSubmittedReceipt] = useState<OrderSubmissionPayload | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
 
   const totals = useMemo(() => calculateCartTotals(cart), [cart]);
 
@@ -50,11 +61,30 @@ export default function App() {
     [activeCategory, searchQuery]
   );
 
-  function handleChangeQuantity(item: MenuItem, delta: number) {
+  function handleConfirmCustomize(
+    item: MenuItem,
+    customization: DrinkCustomization,
+    quantity: number
+  ) {
     setSubmittedReceipt(null);
     setSubmitError(null);
     setFieldErrors((prev) => ({ ...prev, cart: undefined }));
-    setCart((prev) => updateCartQuantity(prev, item, delta));
+    setCart((prev) => addCustomizedCartItem(prev, item, customization, quantity));
+    setCustomizingItem(null);
+  }
+
+  function handleDecrementMenuItem(item: MenuItem) {
+    setSubmittedReceipt(null);
+    setSubmitError(null);
+    setFieldErrors((prev) => ({ ...prev, cart: undefined }));
+    setCart((prev) => decrementMenuItemLatestVariant(prev, item.id));
+  }
+
+  function handleChangeVariantQuantity(variantKey: string, delta: number) {
+    setSubmittedReceipt(null);
+    setSubmitError(null);
+    setFieldErrors((prev) => ({ ...prev, cart: undefined }));
+    setCart((prev) => updateCartVariantQuantity(prev, variantKey, delta));
   }
 
   function handleClearCart() {
@@ -75,7 +105,7 @@ export default function App() {
     event.preventDefault();
     setSubmitError(null);
 
-    const validation = validateOrderForm(cart, form);
+    const validation = validateOrderForm(cart, form, draftReference);
     if (!validation.valid || !validation.payload) {
       setFieldErrors(validation.fieldErrors);
       return;
@@ -88,7 +118,7 @@ export default function App() {
     try {
       const response = await fetch(ORDER_SCRIPT_URL, {
         method: 'POST',
-        body: JSON.stringify(validation.payload),
+        body: JSON.stringify(buildOrderRequestBody(validation.payload)),
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       });
 
@@ -101,6 +131,7 @@ export default function App() {
       setShowSuccessModal(true);
       setCart({});
       setForm(INITIAL_FORM);
+      setDraftReference(generateOrderReference());
     } catch {
       setSubmitError(
         'Gagal mengirim pesanan. Periksa koneksi internet Anda lalu coba kirim ulang.'
@@ -115,6 +146,7 @@ export default function App() {
     setSubmittedReceipt(null);
     setSubmitError(null);
     setFieldErrors({});
+    setDraftReference(generateOrderReference());
   }
 
   function scrollToSection(id: string) {
@@ -223,15 +255,15 @@ export default function App() {
             className="mt-8 grid grid-cols-1 gap-4 border-y border-[#E7E2DA] py-5 sm:grid-cols-3 sm:gap-6"
           >
             <div>
-              <p className="text-xs font-semibold text-[#9A3412]">01. Pilih Menu</p>
+              <p className="text-xs font-semibold text-[#9A3412]">01. Pilih &amp; Atur Rasa</p>
               <p className="mt-1 text-sm text-[#5E544E]">
-                Tentukan jumlah dari 11 pilihan kopi dan minuman citrus segar.
+                Pilih minuman favoritmu lalu atur level es, gula, dan ekstra shot espresso.
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-[#9A3412]">02. Tentukan Lokasi</p>
+              <p className="text-xs font-semibold text-[#9A3412]">02. Lokasi &amp; Bayar</p>
               <p className="mt-1 text-sm text-[#5E544E]">
-                Pilih pengantaran area gedung kampus atau alamat kos luar kampus.
+                Pilih delivery atau ambil di tempat, lalu bayar via QRIS atau Cash / COD.
               </p>
             </div>
             <div>
@@ -338,8 +370,9 @@ export default function App() {
                   <MenuCard
                     key={item.id}
                     item={item}
-                    quantity={cart[item.cartKey]?.qty ?? 0}
-                    onChangeQuantity={handleChangeQuantity}
+                    quantity={getMenuQuantityInCart(cart, item.id)}
+                    onOpenCustomize={setCustomizingItem}
+                    onDecrementItem={handleDecrementMenuItem}
                   />
                 ))}
               </div>
@@ -349,13 +382,13 @@ export default function App() {
           <aside className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:rounded-xl">
             <CheckoutPanel
               cart={cart}
-              menuItems={MENU_ITEMS}
               form={form}
+              previewReference={draftReference}
               fieldErrors={fieldErrors}
               submitError={submitError}
               isSubmitting={isSubmitting}
               submittedReceipt={submittedReceipt}
-              onChangeQuantity={handleChangeQuantity}
+              onChangeVariantQuantity={handleChangeVariantQuantity}
               onClearCart={handleClearCart}
               onFieldChange={handleFieldChange}
               onSubmit={handleSubmit}
@@ -366,27 +399,29 @@ export default function App() {
       </main>
 
       {/* Mobile Compact Sticky Bottom Summary Bar (<= 15% of viewport height) */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7E2DA] bg-white/95 backdrop-blur-sm px-4 py-2.5 lg:hidden">
-        <div className="mx-auto flex max-w-[650px] items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs text-[#786D65]">
-              {totals.totalItems > 0
-                ? `${totals.totalItems} item dipilih`
-                : 'Belum ada pesanan'}
-            </p>
-            <p className="font-mono text-sm font-bold tabular-nums text-[#1A1614]">
-              {totals.formattedTotal}
-            </p>
+      {!submittedReceipt && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7E2DA] bg-white/95 backdrop-blur-sm px-4 py-2.5 lg:hidden">
+          <div className="mx-auto flex max-w-[650px] items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-[#786D65]">
+                {totals.totalItems > 0
+                  ? `${totals.totalItems} item dipilih`
+                  : 'Belum ada pesanan'}
+              </p>
+              <p className="font-mono text-sm font-bold tabular-nums text-[#1A1614]">
+                {totals.formattedTotal}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => scrollToSection('checkout')}
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#C2410C] px-4 text-xs font-semibold text-white hover:bg-[#9A3412] whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <span>Lanjut Pesan</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => scrollToSection('checkout')}
-            className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#C2410C] px-4 text-xs font-semibold text-white hover:bg-[#9A3412] whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <span>Lanjut Pesan</span>
-          </button>
         </div>
-      </div>
+      )}
 
       <footer className="border-t border-[#E7E2DA] bg-[#FAF8F5] py-8">
         <div className="mx-auto flex max-w-[1280px] flex-col items-start justify-between gap-3 px-4 text-xs text-[#786D65] sm:flex-row sm:items-center sm:px-6 lg:px-8">
@@ -396,6 +431,12 @@ export default function App() {
           <p>Pre-order harian untuk pengantaran area kampus &amp; kos sekitar.</p>
         </div>
       </footer>
+
+      <CustomizeMenuModal
+        item={customizingItem}
+        onClose={() => setCustomizingItem(null)}
+        onConfirm={handleConfirmCustomize}
+      />
 
       <OrderSuccessModal
         receipt={submittedReceipt}
