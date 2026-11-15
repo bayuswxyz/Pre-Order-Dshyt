@@ -1,8 +1,8 @@
 /**
  * Google Apps Script Web App for "Database Pesanan Kopi D'SHYT"
  *
- * Columns (A - K):
- * Timestamp | Nama | WhatsApp | Pesanan | Total | Pengiriman | Alamat | Catatan | Metode Pembayaran | Status Pembayaran | Bukti Pembayaran
+ * Columns (A - L):
+ * Timestamp | Nama | WhatsApp | Pesanan | Total | Pengiriman | Alamat | Catatan | Metode Pembayaran | Status Pembayaran | Bukti Pembayaran | Preview Gambar
  */
 
 var SHEET_HEADERS = [
@@ -17,9 +17,17 @@ var SHEET_HEADERS = [
   'Metode Pembayaran',
   'Status Pembayaran',
   'Bukti Pembayaran',
+  'Preview Gambar',
 ];
 
 var DRIVE_FOLDER_ID = '1AaC0W21EWIVzxZAdu0lNLPumyN3eDJJH';
+var DRIVE_FOLDER_NAME = 'bukti pembayaran';
+
+function doGet() {
+  return ContentService.createTextOutput("Kopi D'SHYT Order & QRIS Webhook is active.").setMimeType(
+    ContentService.MimeType.TEXT
+  );
+}
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -34,29 +42,40 @@ function doPost(e) {
 
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(SHEET_HEADERS);
+    } else if (!sheet.getRange(1, 12).getValue()) {
+      sheet.getRange(1, 12).setValue('Preview Gambar');
     }
 
     var metodePembayaran = data.metodePembayaran || 'Cash';
+    var isQr = metodePembayaran === 'QR' || metodePembayaran === 'QRIS';
     var statusPembayaran = '';
     var buktiUrl = data.buktiPembayaran || '-';
+    var previewFormula = '-';
 
-    if (metodePembayaran === 'QR') {
+    if (isQr) {
+      metodePembayaran = 'QR';
       statusPembayaran = data.statusPembayaran || 'Menunggu Konfirmasi';
 
       if (data.fileData) {
-        buktiUrl = saveProofToDrive_(
+        var savedFile = saveProofToDrive_(
           data.fileData,
           data.fileType || 'image/png',
           data.fileName || 'bukti-qr.png',
-          data.nama || 'Pelanggan'
+          data.nama || 'Pelanggan',
+          data.driveFolderId || DRIVE_FOLDER_ID,
+          data.driveFolderName || DRIVE_FOLDER_NAME
         );
+        buktiUrl = savedFile.url;
+        previewFormula = '=IMAGE("' + savedFile.directImageUrl + '")';
       } else {
         buktiUrl = '-';
+        previewFormula = '-';
       }
     } else {
       metodePembayaran = 'Cash';
       statusPembayaran = 'Pending';
       buktiUrl = '-';
+      previewFormula = '-';
     }
 
     var rowValues = [
@@ -71,13 +90,19 @@ function doPost(e) {
       metodePembayaran,
       statusPembayaran,
       buktiUrl,
+      previewFormula,
     ];
 
     sheet.appendRow(rowValues);
+    var newRow = sheet.getLastRow();
+
+    if (previewFormula !== '-') {
+      sheet.setRowHeight(newRow, 96);
+    }
 
     return jsonResponse_({
       status: 'success',
-      row: sheet.getLastRow(),
+      row: newRow,
       metodePembayaran: metodePembayaran,
       statusPembayaran: statusPembayaran,
       buktiPembayaran: buktiUrl,
@@ -92,8 +117,29 @@ function doPost(e) {
   }
 }
 
-function saveProofToDrive_(fileData, mimeType, fileName, customerName) {
-  var folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+function getTargetDriveFolder_(preferredId, preferredName) {
+  if (preferredId) {
+    try {
+      return DriveApp.getFolderById(preferredId);
+    } catch (idErr) {
+      // Fallback ke pencarian / pembuatan folder berdasarkan nama "bukti pembayaran"
+    }
+  }
+
+  var folderName = preferredName || DRIVE_FOLDER_NAME;
+  var folders = DriveApp.getFoldersByName(folderName);
+  return folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+}
+
+function saveProofToDrive_(
+  fileData,
+  mimeType,
+  fileName,
+  customerName,
+  preferredFolderId,
+  preferredFolderName
+) {
+  var folder = getTargetDriveFolder_(preferredFolderId, preferredFolderName);
 
   var base64Part = fileData.indexOf(',') !== -1 ? fileData.split(',')[1] : fileData;
   var bytes = Utilities.base64Decode(base64Part.trim());
@@ -110,7 +156,11 @@ function saveProofToDrive_(fileData, mimeType, fileName, customerName) {
     // Some Google Workspace domains restrict public link sharing; keep private Drive URL.
   }
 
-  return file.getUrl();
+  return {
+    id: file.getId(),
+    url: file.getUrl(),
+    directImageUrl: 'https://drive.google.com/uc?export=view&id=' + file.getId(),
+  };
 }
 
 function jsonResponse_(payload) {

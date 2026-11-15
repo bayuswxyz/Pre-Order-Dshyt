@@ -1,5 +1,9 @@
 import type { MenuCategory, MenuItem } from '../data/menu';
 import {
+  PAYMENT_PROOF_DRIVE_FOLDER_ID,
+  PAYMENT_PROOF_DRIVE_FOLDER_NAME,
+} from './googleDrive';
+import {
   generateOrderReference,
   getPaymentStatusForMethod,
   type UploadedPaymentProof,
@@ -88,6 +92,8 @@ export interface AppsScriptOrderRequest {
   metodePembayaran: PaymentMethod;
   statusPembayaran: PaymentStatus;
   buktiPembayaran: string;
+  driveFolderId: string;
+  driveFolderName: string;
   fileData: string;
   fileName: string;
   fileType: string;
@@ -420,6 +426,8 @@ export function buildOrderRequestBody(
     metodePembayaran: isCash ? 'Cash' : 'QR',
     statusPembayaran: isCash ? 'Pending' : payload.statusPembayaran,
     buktiPembayaran: isCash ? '-' : payload.buktiPembayaran,
+    driveFolderId: PAYMENT_PROOF_DRIVE_FOLDER_ID,
+    driveFolderName: PAYMENT_PROOF_DRIVE_FOLDER_NAME,
     fileData: isCash ? '' : payload.fileData,
     fileName: isCash ? '' : payload.fileName,
     fileType: isCash ? '' : payload.fileType,
@@ -429,19 +437,30 @@ export function buildOrderRequestBody(
 export function parseOrderScriptResponse(rawText: string): {
   ok: boolean;
   message?: string;
+  buktiPembayaran?: string;
 } {
   const trimmed = rawText.trim();
   if (!trimmed) return { ok: true };
 
   try {
-    const parsed = JSON.parse(trimmed) as { status?: string; message?: string };
+    const parsed = JSON.parse(trimmed) as {
+      status?: string;
+      message?: string;
+      buktiPembayaran?: string;
+    };
     if (parsed && parsed.status === 'error') {
       return {
         ok: false,
         message: parsed.message || 'Gagal mencatat pesanan ke database.',
       };
     }
-    return { ok: true };
+    return {
+      ok: true,
+      buktiPembayaran:
+        typeof parsed?.buktiPembayaran === 'string' && parsed.buktiPembayaran.trim()
+          ? parsed.buktiPembayaran.trim()
+          : undefined,
+    };
   } catch {
     return { ok: true };
   }

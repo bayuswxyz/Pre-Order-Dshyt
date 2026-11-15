@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MENU_ITEMS } from '../data/menu';
 import {
+  PAYMENT_PROOF_DRIVE_FOLDER_ID,
+  PAYMENT_PROOF_DRIVE_FOLDER_NAME,
+} from './googleDrive';
+import {
   addCustomizedCartItem,
   buildOrderRequestBody,
   calculateCartTotals,
@@ -185,6 +189,8 @@ test('validateOrderForm enforces cart, customer fields, QR proof upload, and bui
     metodePembayaran: 'QR',
     statusPembayaran: 'Menunggu Konfirmasi',
     buktiPembayaran: '',
+    driveFolderId: PAYMENT_PROOF_DRIVE_FOLDER_ID,
+    driveFolderName: PAYMENT_PROOF_DRIVE_FOLDER_NAME,
     fileData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
     fileName: 'bukti-qr.png',
     fileType: 'image/png',
@@ -217,9 +223,21 @@ test('validateOrderForm enforces cart, customer fields, QR proof upload, and bui
   assert.equal(cashBody.alamat, "Ambil langsung di booth Kopi D'SHYT");
 });
 
-test('parseOrderScriptResponse detects JSON error responses cleanly', () => {
+test('parseOrderScriptResponse detects JSON error and Drive URL responses cleanly', () => {
   assert.deepEqual(parseOrderScriptResponse(''), { ok: true });
-  assert.deepEqual(parseOrderScriptResponse('{"status":"success","row":2}'), { ok: true });
+  assert.deepEqual(parseOrderScriptResponse('{"status":"success","row":2}'), {
+    ok: true,
+    buktiPembayaran: undefined,
+  });
+  assert.deepEqual(
+    parseOrderScriptResponse(
+      '{"status":"success","row":2,"buktiPembayaran":"https://drive.google.com/file/d/abc/view"}'
+    ),
+    {
+      ok: true,
+      buktiPembayaran: 'https://drive.google.com/file/d/abc/view',
+    }
+  );
   assert.deepEqual(
     parseOrderScriptResponse('{"status":"error","message":"Sheet tidak ditemukan"}'),
     { ok: false, message: 'Sheet tidak ditemukan' }

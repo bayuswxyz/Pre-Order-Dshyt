@@ -168,9 +168,22 @@ export function CheckoutPanel({
           <div className="flex justify-between gap-4">
             <dt className="text-[#786D65]">Bukti Pembayaran</dt>
             <dd className="font-mono text-xs text-right text-[#1A1614] truncate max-w-[200px]">
-              {submittedReceipt.metodePembayaran === 'QR'
-                ? submittedReceipt.fileName || 'Terunggah ke Drive'
-                : submittedReceipt.buktiPembayaran || '-'}
+              {submittedReceipt.metodePembayaran === 'QR' ? (
+                submittedReceipt.buktiPembayaran.startsWith('http') ? (
+                  <a
+                    href={submittedReceipt.buktiPembayaran}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-sans font-semibold text-[#9A3412] underline hover:text-[#C2410C]"
+                  >
+                    Lihat di Drive ({submittedReceipt.fileName || 'Bukti QR'})
+                  </a>
+                ) : (
+                  submittedReceipt.fileName || 'Tersimpan di folder bukti pembayaran'
+                )
+              ) : (
+                submittedReceipt.buktiPembayaran || '-'
+              )}
             </dd>
           </div>
           <div className="pt-3 border-t border-[#EFEAE2]">

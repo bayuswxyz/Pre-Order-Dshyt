@@ -1,5 +1,5 @@
 import { type FormEvent, useMemo, useState } from 'react';
-import { ArrowDown, Search, ShoppingBag, X } from 'lucide-react';
+import { ArrowDown, FolderOpen, Search, ShoppingBag, X } from 'lucide-react';
 import {
   MENU_CATEGORIES,
   MENU_ITEMS,
@@ -28,6 +28,7 @@ import { MenuCard } from './components/MenuCard';
 import { CheckoutPanel } from './components/CheckoutPanel';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { CustomizeMenuModal } from './components/CustomizeMenuModal';
+import { DriveProofsModal } from './components/DriveProofsModal';
 import heroBannerImg from './assets/images/kopi_dshyt_banner_1794658694371.jpg';
 
 const INITIAL_FORM: OrderFormInput = {
@@ -53,6 +54,7 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedReceipt, setSubmittedReceipt] = useState<OrderSubmissionPayload | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDriveModal, setShowDriveModal] = useState(false);
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
 
   const totals = useMemo(() => calculateCartTotals(cart), [cart]);
@@ -133,8 +135,12 @@ export default function App() {
         throw new Error(scriptResult.message || 'Database error');
       }
 
+      const finalReceipt: OrderSubmissionPayload = scriptResult.buktiPembayaran
+        ? { ...validation.payload, buktiPembayaran: scriptResult.buktiPembayaran }
+        : validation.payload;
+
       playTransactionSuccessSound(audioCtx);
-      setSubmittedReceipt(validation.payload);
+      setSubmittedReceipt(finalReceipt);
       setShowSuccessModal(true);
       setCart({});
       setForm(INITIAL_FORM);
@@ -199,16 +205,29 @@ export default function App() {
             </a>
           </nav>
 
-          <button
-            type="button"
-            onClick={() => scrollToSection('checkout')}
-            aria-label={`Lihat keranjang, ${totals.totalItems} item`}
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1A1614] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#C2410C] whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <ShoppingBag className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Keranjang</span>
-            <span className="font-mono tabular-nums">({totals.totalItems})</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowDriveModal(true)}
+              data-testid="open-drive-btn"
+              aria-label="Kelola arsip bukti pembayaran di Google Drive"
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#DDD6CC] bg-white px-3 text-xs font-semibold text-[#1A1614] transition-colors hover:bg-[#EFEAE2] whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <FolderOpen className="h-3.5 w-3.5 text-[#C2410C]" aria-hidden="true" />
+              <span className="hidden sm:inline">Drive Bukti</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('checkout')}
+              aria-label={`Lihat keranjang, ${totals.totalItems} item`}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1A1614] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#C2410C] whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <ShoppingBag className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Keranjang</span>
+              <span className="font-mono tabular-nums">({totals.totalItems})</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -450,6 +469,11 @@ export default function App() {
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
         onStartNewOrder={handleStartNewOrder}
+      />
+
+      <DriveProofsModal
+        isOpen={showDriveModal}
+        onClose={() => setShowDriveModal(false)}
       />
     </div>
   );
