@@ -14,6 +14,7 @@ import {
   decrementMenuItemLatestVariant,
   filterMenuItems,
   getMenuQuantityInCart,
+  parseOrderScriptResponse,
   updateCartVariantQuantity,
   validateOrderForm,
   type CartState,
@@ -34,7 +35,7 @@ const INITIAL_FORM: OrderFormInput = {
   whatsapp: '',
   pengiriman: 'Delivery (Kampus)',
   alamat: '',
-  metodePembayaran: 'COD',
+  metodePembayaran: 'Cash',
   catatan: '',
   paymentProof: null,
 };
@@ -124,6 +125,12 @@ export default function App() {
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
+      }
+
+      const responseText = await response.text().catch(() => '');
+      const scriptResult = parseOrderScriptResponse(responseText);
+      if (!scriptResult.ok) {
+        throw new Error(scriptResult.message || 'Database error');
       }
 
       playTransactionSuccessSound(audioCtx);

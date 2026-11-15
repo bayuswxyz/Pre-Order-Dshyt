@@ -25,11 +25,11 @@ test('extractBase64FromDataUrl strips data URI header for Google Apps Script', (
   assert.equal(raw.base64, 'YWJjMTIz');
 });
 
-test('getPaymentStatusForMethod and formatPaymentMethodLabel map QRIS and COD', () => {
-  assert.equal(getPaymentStatusForMethod('QRIS'), 'Menunggu Konfirmasi');
-  assert.equal(getPaymentStatusForMethod('COD'), 'COD');
-  assert.equal(formatPaymentMethodLabel('QRIS'), 'QRIS');
-  assert.equal(formatPaymentMethodLabel('COD'), 'Cash / COD');
+test('getPaymentStatusForMethod and formatPaymentMethodLabel map QR and Cash', () => {
+  assert.equal(getPaymentStatusForMethod('QR'), 'Menunggu Konfirmasi');
+  assert.equal(getPaymentStatusForMethod('Cash'), 'Pending');
+  assert.equal(formatPaymentMethodLabel('QR'), 'QR / QRIS');
+  assert.equal(formatPaymentMethodLabel('Cash'), 'Cash / COD');
 });
 
 test('formatFileSize formats KB and MB cleanly', () => {

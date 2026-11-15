@@ -165,14 +165,14 @@ export function CheckoutPanel({
               {submittedReceipt.kodeReferensi}
             </dd>
           </div>
-          {submittedReceipt.fileName && (
-            <div className="flex justify-between gap-4">
-              <dt className="text-[#786D65]">Bukti Transfer</dt>
-              <dd className="font-mono text-xs text-right text-[#1A1614] truncate max-w-[200px]">
-                {submittedReceipt.fileName}
-              </dd>
-            </div>
-          )}
+          <div className="flex justify-between gap-4">
+            <dt className="text-[#786D65]">Bukti Pembayaran</dt>
+            <dd className="font-mono text-xs text-right text-[#1A1614] truncate max-w-[200px]">
+              {submittedReceipt.metodePembayaran === 'QR'
+                ? submittedReceipt.fileName || 'Terunggah ke Drive'
+                : submittedReceipt.buktiPembayaran || '-'}
+            </dd>
+          </div>
           <div className="pt-3 border-t border-[#EFEAE2]">
             <dt className="text-xs font-semibold uppercase tracking-wider text-[#786D65]">
               Menu Dipesan
@@ -189,16 +189,18 @@ export function CheckoutPanel({
           </div>
         </dl>
 
-        {submittedReceipt.metodePembayaran === 'QRIS' ? (
+        {submittedReceipt.metodePembayaran === 'QR' ? (
           <div className="mt-5 rounded-lg border border-[#D8E2D8] bg-[#F5F9F5] p-3.5 text-xs leading-relaxed text-[#1E4620]">
-            Bukti pembayaran QRIS (<span className="font-mono">{submittedReceipt.fileName}</span>)
-            sudah terkirim. Status pesanan Anda: <span className="font-semibold">Menunggu Konfirmasi</span>.
+            Bukti pembayaran QR (<span className="font-mono">{submittedReceipt.fileName}</span>)
+            sudah terkirim dan akan disimpan di Google Drive. Status pesanan:{' '}
+            <span className="font-semibold">{submittedReceipt.statusPembayaran}</span>.
           </div>
         ) : (
           <div className="mt-5 rounded-lg border border-[#E7E2DA] bg-[#FAF8F5] p-3.5 text-xs leading-relaxed text-[#5E544E]">
-            Siapkan uang tunai sebesar{' '}
-            <span className="font-mono font-bold text-[#1A1614]">{submittedReceipt.total}</span>{' '}
-            untuk dibayarkan saat pesanan tiba / diambil (COD).
+            Status pembayaran: <span className="font-semibold text-[#1A1614]">Pending</span> (Bukti:{' '}
+            <span className="font-mono font-semibold text-[#1A1614]">-</span>). Siapkan uang tunai
+            sebesar <span className="font-mono font-bold text-[#1A1614]">{submittedReceipt.total}</span>{' '}
+            untuk dibayarkan saat pesanan tiba / diambil.
           </div>
         )}
 
@@ -433,7 +435,7 @@ export function CheckoutPanel({
           />
         </div>
 
-        {/* Metode Pembayaran: Cash / COD OR QRIS */}
+        {/* Metode Pembayaran: Cash OR QR */}
         <div className="pt-1">
           <span
             id="payment-method-label"
@@ -449,28 +451,28 @@ export function CheckoutPanel({
             <button
               type="button"
               role="radio"
-              aria-checked={form.metodePembayaran === 'COD'}
-              data-testid="payment-cod-btn"
+              aria-checked={form.metodePembayaran === 'Cash'}
+              data-testid="payment-cash-btn"
               onClick={() => {
                 setFileReadError(null);
-                onFieldChange('metodePembayaran', 'COD');
+                onFieldChange('metodePembayaran', 'Cash');
               }}
               className={`flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors cursor-pointer ${
-                form.metodePembayaran === 'COD'
+                form.metodePembayaran === 'Cash'
                   ? 'border-[#C2410C] bg-[#FFF8F3] text-[#1A1614]'
                   : 'border-[#DDD6CC] bg-[#FAF8F5] text-[#5E544E] hover:border-[#C2410C]/45 hover:bg-white'
               }`}
             >
               <Banknote
                 className={`h-4 w-4 shrink-0 mt-0.5 ${
-                  form.metodePembayaran === 'COD' ? 'text-[#C2410C]' : 'text-[#786D65]'
+                  form.metodePembayaran === 'Cash' ? 'text-[#C2410C]' : 'text-[#786D65]'
                 }`}
                 aria-hidden="true"
               />
               <div className="min-w-0">
-                <p className="text-sm font-semibold leading-tight text-[#1A1614]">Cash / COD</p>
+                <p className="text-sm font-semibold leading-tight text-[#1A1614]">Cash</p>
                 <p className="mt-0.5 text-[11px] leading-snug text-[#786D65]">
-                  Bayar di tempat
+                  Bayar di tempat (Pending)
                 </p>
               </div>
             </button>
@@ -478,23 +480,23 @@ export function CheckoutPanel({
             <button
               type="button"
               role="radio"
-              aria-checked={form.metodePembayaran === 'QRIS'}
-              data-testid="payment-qris-btn"
-              onClick={() => onFieldChange('metodePembayaran', 'QRIS')}
+              aria-checked={form.metodePembayaran === 'QR'}
+              data-testid="payment-qr-btn"
+              onClick={() => onFieldChange('metodePembayaran', 'QR')}
               className={`flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors cursor-pointer ${
-                form.metodePembayaran === 'QRIS'
+                form.metodePembayaran === 'QR'
                   ? 'border-[#C2410C] bg-[#FFF8F3] text-[#1A1614]'
                   : 'border-[#DDD6CC] bg-[#FAF8F5] text-[#5E544E] hover:border-[#C2410C]/45 hover:bg-white'
               }`}
             >
               <QrCode
                 className={`h-4 w-4 shrink-0 mt-0.5 ${
-                  form.metodePembayaran === 'QRIS' ? 'text-[#C2410C]' : 'text-[#786D65]'
+                  form.metodePembayaran === 'QR' ? 'text-[#C2410C]' : 'text-[#786D65]'
                 }`}
                 aria-hidden="true"
               />
               <div className="min-w-0">
-                <p className="text-sm font-semibold leading-tight text-[#1A1614]">QRIS</p>
+                <p className="text-sm font-semibold leading-tight text-[#1A1614]">QR / QRIS</p>
                 <p className="mt-0.5 text-[11px] leading-snug text-[#786D65]">
                   Scan &amp; unggah bukti
                 </p>
@@ -502,13 +504,14 @@ export function CheckoutPanel({
             </button>
           </div>
 
-          {form.metodePembayaran === 'COD' ? (
+          {form.metodePembayaran === 'Cash' ? (
             <div
-              data-testid="payment-cod-info"
+              data-testid="payment-cash-info"
               className="mt-2.5 rounded-lg border border-[#E7E2DA] bg-[#FAF8F5] px-3.5 py-2.5 text-xs leading-relaxed text-[#5E544E]"
             >
-              Status pembayaran tercatat sebagai <span className="font-semibold text-[#1A1614]">COD</span>.
-              Siapkan uang tunai{' '}
+              Status pembayaran tercatat sebagai <span className="font-semibold text-[#1A1614]">Pending</span>{' '}
+              (kolom bukti diisi <span className="font-mono font-semibold text-[#1A1614]">-</span>). Siapkan
+              uang tunai{' '}
               <span className="font-mono font-semibold text-[#1A1614]">
                 {totals.totalPrice > 0 ? totals.formattedTotal : 'sesuai total pesanan'}
               </span>{' '}

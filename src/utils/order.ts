@@ -10,8 +10,8 @@ export type DeliveryType =
   | 'Delivery (Luar Kampus)'
   | 'Ambil di Tempat';
 
-export type PaymentMethod = 'COD' | 'QRIS';
-export type PaymentStatus = 'COD' | 'Menunggu Konfirmasi';
+export type PaymentMethod = 'Cash' | 'QR';
+export type PaymentStatus = 'Pending' | 'Menunggu Konfirmasi';
 
 export type IceLevel = 'Normal Ice' | 'Less Ice' | 'No Ice';
 export type SugarLevel = 'Normal Sugar' | 'Less Sugar' | 'No Sugar';
@@ -68,6 +68,7 @@ export interface OrderSubmissionPayload {
   catatan: string;
   metodePembayaran: PaymentMethod;
   statusPembayaran: PaymentStatus;
+  buktiPembayaran: string;
   fileData: string;
   fileName: string;
   fileType: string;
@@ -75,6 +76,8 @@ export interface OrderSubmissionPayload {
 }
 
 export interface AppsScriptOrderRequest {
+  timestamp: string;
+  kodeReferensi: string;
   nama: string;
   whatsapp: string;
   pesanan: string;
@@ -84,6 +87,7 @@ export interface AppsScriptOrderRequest {
   catatan: string;
   metodePembayaran: PaymentMethod;
   statusPembayaran: PaymentStatus;
+  buktiPembayaran: string;
   fileData: string;
   fileName: string;
   fileType: string;
@@ -336,7 +340,7 @@ export function validateOrderForm(
       ? "Ambil langsung di booth Kopi D'SHYT"
       : '');
   const catatan = form.catatan.trim();
-  const metodePembayaran: PaymentMethod = form.metodePembayaran === 'QRIS' ? 'QRIS' : 'COD';
+  const metodePembayaran: PaymentMethod = form.metodePembayaran === 'QR' ? 'QR' : 'Cash';
   const statusPembayaran = getPaymentStatusForMethod(metodePembayaran);
   const resolvedRef = kodeReferensi?.trim() || generateOrderReference();
 
@@ -357,9 +361,9 @@ export function validateOrderForm(
         : 'Alamat lengkap kos atau rumah wajib diisi.';
   }
 
-  if (metodePembayaran === 'QRIS' && !form.paymentProof?.fileData) {
+  if (metodePembayaran === 'QR' && !form.paymentProof?.fileData) {
     fieldErrors.paymentProof =
-      'Silakan unggah screenshot / bukti transfer QRIS terlebih dahulu.';
+      'Silakan unggah screenshot / bukti transfer QR terlebih dahulu.';
   }
 
   const firstError = Object.values(fieldErrors)[0];
@@ -371,7 +375,8 @@ export function validateOrderForm(
     };
   }
 
-  const proof = metodePembayaran === 'QRIS' ? form.paymentProof : null;
+  const isQr = metodePembayaran === 'QR';
+  const proof = isQr ? form.paymentProof : null;
 
   return {
     valid: true,
@@ -387,6 +392,7 @@ export function validateOrderForm(
       catatan,
       metodePembayaran,
       statusPembayaran,
+      buktiPembayaran: isQr ? '' : '-',
       fileData: proof?.fileData ?? '',
       fileName: proof?.fileName ?? '',
       fileType: proof?.fileType ?? '',
@@ -396,9 +402,14 @@ export function validateOrderForm(
 }
 
 export function buildOrderRequestBody(
-  payload: OrderSubmissionPayload
+  payload: OrderSubmissionPayload,
+  timestamp: string = new Date().toISOString()
 ): AppsScriptOrderRequest {
+  const isCash = payload.metodePembayaran === 'Cash';
+
   return {
+    timestamp,
+    kodeReferensi: payload.kodeReferensi,
     nama: payload.nama,
     whatsapp: payload.whatsapp,
     pesanan: payload.pesanan,
@@ -406,10 +417,32 @@ export function buildOrderRequestBody(
     pengiriman: payload.pengiriman,
     alamat: payload.alamat,
     catatan: payload.catatan,
-    metodePembayaran: payload.metodePembayaran,
-    statusPembayaran: payload.statusPembayaran,
-    fileData: payload.fileData,
-    fileName: payload.fileName,
-    fileType: payload.fileType,
+    metodePembayaran: isCash ? 'Cash' : 'QR',
+    statusPembayaran: isCash ? 'Pending' : payload.statusPembayaran,
+    buktiPembayaran: isCash ? '-' : payload.buktiPembayaran,
+    fileData: isCash ? '' : payload.fileData,
+    fileName: isCash ? '' : payload.fileName,
+    fileType: isCash ? '' : payload.fileType,
   };
+}
+
+export function parseOrderScriptResponse(rawText: string): {
+  ok: boolean;
+  message?: string;
+} {
+  const trimmed = rawText.trim();
+  if (!trimmed) return { ok: true };
+
+  try {
+    const parsed = JSON.parse(trimmed) as { status?: string; message?: string };
+    if (parsed && parsed.status === 'error') {
+      return {
+        ok: false,
+        message: parsed.message || 'Gagal mencatat pesanan ke database.',
+      };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: true };
+  }
 }

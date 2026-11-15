@@ -105,19 +105,22 @@ export function OrderSuccessModal({
           </div>
         </div>
 
-        {receipt.metodePembayaran === 'QRIS' ? (
+        {receipt.metodePembayaran === 'QR' ? (
           <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-[#D8E2D8] bg-[#F5F9F5] p-3.5 text-xs leading-relaxed text-[#1E4620]">
             <QrCode className="h-4 w-4 shrink-0 text-[#15803D] mt-0.5" aria-hidden="true" />
             <span>
-              Bukti transfer QRIS (<span className="font-mono">{receipt.fileName}</span>) berhasil
-              dikirim. Status: <span className="font-semibold">{receipt.statusPembayaran}</span>.
+              Bukti transfer QR (<span className="font-mono">{receipt.fileName}</span>) berhasil
+              dikirim ke Google Drive. Status:{' '}
+              <span className="font-semibold">{receipt.statusPembayaran}</span>.
             </span>
           </div>
         ) : (
           <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-[#E7E2DA] bg-white p-3.5 text-xs leading-relaxed text-[#5E544E]">
             <Banknote className="h-4 w-4 shrink-0 text-[#C2410C] mt-0.5" aria-hidden="true" />
             <span>
-              Pembayaran <span className="font-semibold text-[#1A1614]">Cash / COD</span>. Siapkan
+              Pembayaran <span className="font-semibold text-[#1A1614]">Cash / COD</span> (Status:{' '}
+              <span className="font-semibold text-[#1A1614]">{receipt.statusPembayaran}</span>,
+              Bukti: <span className="font-mono font-semibold text-[#1A1614]">-</span>). Siapkan
               uang sejumlah{' '}
               <span className="font-mono font-bold text-[#1A1614]">{receipt.total}</span> saat
               pesanan diterima.

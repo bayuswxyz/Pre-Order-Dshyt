@@ -13,24 +13,51 @@ export function isBrowserExtensionError(details: {
   const stack = typeof details.stack === 'string' ? details.stack : '';
   const message = typeof details.message === 'string' ? details.message : '';
 
-  if (EXTENSION_PREFIXES.some((prefix) => filename.startsWith(prefix) || stack.includes(prefix))) {
+  if (
+    EXTENSION_PREFIXES.some(
+      (prefix) =>
+        filename.startsWith(prefix) || stack.includes(prefix) || message.includes(prefix)
+    )
+  ) {
     return true;
   }
 
-  return message.includes('Failed to connect to MetaMask');
+  return (
+    message.includes('Failed to connect to MetaMask') ||
+    stack.includes('Failed to connect to MetaMask')
+  );
+}
+
+export function isExtensionErrorValue(value: unknown, filename?: unknown): boolean {
+  if (typeof value === 'string') {
+    return isBrowserExtensionError({ filename, message: value });
+  }
+  if (value && typeof value === 'object') {
+    const err = value as { message?: unknown; stack?: unknown };
+    return isBrowserExtensionError({
+      filename,
+      message: err.message,
+      stack: err.stack,
+    });
+  }
+  return isBrowserExtensionError({ filename });
+}
+
+declare global {
+  interface Window {
+    __dshytExtensionErrorGuardInstalled?: boolean;
+  }
 }
 
 export function installExtensionErrorGuard(): void {
   if (typeof window === 'undefined') return;
+  if (window.__dshytExtensionErrorGuardInstalled) return;
+  window.__dshytExtensionErrorGuardInstalled = true;
 
   window.addEventListener(
     'unhandledrejection',
     (event) => {
-      const reason = event.reason as { message?: unknown; stack?: unknown } | string | undefined;
-      const message = typeof reason === 'string' ? reason : reason?.message;
-      const stack = typeof reason === 'object' && reason !== null ? reason.stack : undefined;
-
-      if (isBrowserExtensionError({ message, stack })) {
+      if (isExtensionErrorValue(event.reason)) {
         event.preventDefault();
         event.stopImmediatePropagation();
       }
@@ -41,18 +68,19 @@ export function installExtensionErrorGuard(): void {
   window.addEventListener(
     'error',
     (event) => {
-      const err = event.error as { message?: unknown; stack?: unknown } | undefined;
-      if (
-        isBrowserExtensionError({
-          filename: event.filename,
-          message: event.message ?? err?.message,
-          stack: err?.stack,
-        })
-      ) {
+      if (isExtensionErrorValue(event.error ?? event.message, event.filename)) {
         event.preventDefault();
         event.stopImmediatePropagation();
       }
     },
     true
   );
+
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    if (args.some((arg) => isExtensionErrorValue(arg))) {
+      return;
+    }
+    originalConsoleError.apply(console, args);
+  };
 }

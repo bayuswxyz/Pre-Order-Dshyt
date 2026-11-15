@@ -3,6 +3,7 @@ import type { PaymentMethod, PaymentStatus } from './order';
 export const MAX_PROOF_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 export interface UploadedPaymentProof {
+  /** Full Base64 data URI (e.g. data:image/jpeg;base64,...) compatible with Apps Script split(',')[1] */
   fileData: string;
   fileName: string;
   fileType: string;
@@ -63,7 +64,7 @@ export function readPaymentProofAsBase64(file: File): Promise<UploadedPaymentPro
       }
 
       resolve({
-        fileData: base64,
+        fileData: result,
         fileName: file.name || 'bukti-pembayaran.png',
         fileType: file.type || mimeType,
         previewUrl: result,
@@ -80,11 +81,11 @@ export function readPaymentProofAsBase64(file: File): Promise<UploadedPaymentPro
 }
 
 export function getPaymentStatusForMethod(method: PaymentMethod): PaymentStatus {
-  return method === 'QRIS' ? 'Menunggu Konfirmasi' : 'COD';
+  return method === 'QR' ? 'Menunggu Konfirmasi' : 'Pending';
 }
 
 export function formatPaymentMethodLabel(method: PaymentMethod): string {
-  return method === 'QRIS' ? 'QRIS' : 'Cash / COD';
+  return method === 'QR' ? 'QR / QRIS' : 'Cash / COD';
 }
 
 export function formatFileSize(bytes: number): string {

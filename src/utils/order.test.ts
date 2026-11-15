@@ -12,6 +12,7 @@ import {
   formatRupiah,
   getDeliveryFieldConfig,
   getMenuQuantityInCart,
+  parseOrderScriptResponse,
   updateCartVariantQuantity,
   validateOrderForm,
   type CartState,
@@ -106,7 +107,7 @@ test('getDeliveryFieldConfig toggles label, placeholder, and required flag clean
   assert.equal(pickup.required, false);
 });
 
-test('validateOrderForm enforces cart, customer fields, QRIS proof upload, and builds exact Apps Script payload', () => {
+test('validateOrderForm enforces cart, customer fields, QR proof upload, and builds conditional Cash/QR payloads', () => {
   const emptyResult = validateOrderForm(
     {},
     {
@@ -114,7 +115,7 @@ test('validateOrderForm enforces cart, customer fields, QRIS proof upload, and b
       whatsapp: '081234567890',
       pengiriman: 'Delivery (Kampus)',
       alamat: 'Gedung Kuliah Lt. 2',
-      metodePembayaran: 'COD',
+      metodePembayaran: 'Cash',
       catatan: '',
       paymentProof: null,
     }
@@ -134,30 +135,30 @@ test('validateOrderForm enforces cart, customer fields, QRIS proof upload, and b
     2
   ); // (13.000 + 9.000) * 2 = 44.000
 
-  const missingQrisProof = validateOrderForm(cart, {
+  const missingQrProof = validateOrderForm(cart, {
     nama: 'Bayu Satrio',
     whatsapp: '081234567890',
     pengiriman: 'Delivery (Luar Kampus)',
     alamat: 'Jl. Gerilya No. 12',
-    metodePembayaran: 'QRIS',
+    metodePembayaran: 'QR',
     catatan: 'Titip satpam',
     paymentProof: null,
   });
-  assert.equal(missingQrisProof.valid, false);
-  assert.ok(missingQrisProof.fieldErrors.paymentProof);
+  assert.equal(missingQrProof.valid, false);
+  assert.ok(missingQrProof.fieldErrors.paymentProof);
 
-  const validQris = validateOrderForm(
+  const validQr = validateOrderForm(
     cart,
     {
       nama: 'Bayu Satrio',
       whatsapp: '081234567890',
       pengiriman: 'Delivery (Luar Kampus)',
       alamat: 'Jl. Gerilya No. 12',
-      metodePembayaran: 'QRIS',
+      metodePembayaran: 'QR',
       catatan: 'Titip di pos satpam',
       paymentProof: {
-        fileData: 'iVBORw0KGgoAAAANSUhEUg==',
-        fileName: 'bukti-qris.png',
+        fileData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+        fileName: 'bukti-qr.png',
         fileType: 'image/png',
         previewUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
         fileSize: 1024,
@@ -165,13 +166,15 @@ test('validateOrderForm enforces cart, customer fields, QRIS proof upload, and b
     },
     'DSHYT-TEST01'
   );
-  assert.equal(validQris.valid, true);
-  assert.equal(validQris.payload?.metodePembayaran, 'QRIS');
-  assert.equal(validQris.payload?.statusPembayaran, 'Menunggu Konfirmasi');
-  assert.equal(validQris.payload?.total, 'Rp 44.000');
+  assert.equal(validQr.valid, true);
+  assert.equal(validQr.payload?.metodePembayaran, 'QR');
+  assert.equal(validQr.payload?.statusPembayaran, 'Menunggu Konfirmasi');
+  assert.equal(validQr.payload?.total, 'Rp 44.000');
 
-  const qrisBody = buildOrderRequestBody(validQris.payload!);
-  assert.deepEqual(qrisBody, {
+  const qrBody = buildOrderRequestBody(validQr.payload!, '2026-11-15T11:20:00.000Z');
+  assert.deepEqual(qrBody, {
+    timestamp: '2026-11-15T11:20:00.000Z',
+    kodeReferensi: 'DSHYT-TEST01',
     nama: 'Bayu Satrio',
     whatsapp: '081234567890',
     pesanan: 'Coffee Milk DSHYT (2x: Less Ice, Less Sugar, Extra Shot Espresso)',
@@ -179,30 +182,48 @@ test('validateOrderForm enforces cart, customer fields, QRIS proof upload, and b
     pengiriman: 'Delivery (Luar Kampus)',
     alamat: 'Jl. Gerilya No. 12',
     catatan: 'Titip di pos satpam',
-    metodePembayaran: 'QRIS',
+    metodePembayaran: 'QR',
     statusPembayaran: 'Menunggu Konfirmasi',
-    fileData: 'iVBORw0KGgoAAAANSUhEUg==',
-    fileName: 'bukti-qris.png',
+    buktiPembayaran: '',
+    fileData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+    fileName: 'bukti-qr.png',
     fileType: 'image/png',
   });
 
-  const validPickupCod = validateOrderForm(cart, {
+  // Even if paymentProof was attached before switching back to Cash, Cash payload clears fileData and sets buktiPembayaran = '-'
+  const validPickupCash = validateOrderForm(cart, {
     nama: 'Bayu Satrio',
     whatsapp: '081234567890',
     pengiriman: 'Ambil di Tempat',
     alamat: '',
-    metodePembayaran: 'COD',
+    metodePembayaran: 'Cash',
     catatan: '',
-    paymentProof: null,
+    paymentProof: {
+      fileData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+      fileName: 'stale-proof.png',
+      fileType: 'image/png',
+      previewUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+      fileSize: 1024,
+    },
   });
-  assert.equal(validPickupCod.valid, true);
-  const codBody = buildOrderRequestBody(validPickupCod.payload!);
-  assert.equal(codBody.metodePembayaran, 'COD');
-  assert.equal(codBody.statusPembayaran, 'COD');
-  assert.equal(codBody.fileData, '');
-  assert.equal(codBody.fileName, '');
-  assert.equal(codBody.fileType, '');
-  assert.equal(codBody.alamat, "Ambil langsung di booth Kopi D'SHYT");
+  assert.equal(validPickupCash.valid, true);
+  const cashBody = buildOrderRequestBody(validPickupCash.payload!, '2026-11-15T11:20:00.000Z');
+  assert.equal(cashBody.metodePembayaran, 'Cash');
+  assert.equal(cashBody.statusPembayaran, 'Pending');
+  assert.equal(cashBody.buktiPembayaran, '-');
+  assert.equal(cashBody.fileData, '');
+  assert.equal(cashBody.fileName, '');
+  assert.equal(cashBody.fileType, '');
+  assert.equal(cashBody.alamat, "Ambil langsung di booth Kopi D'SHYT");
+});
+
+test('parseOrderScriptResponse detects JSON error responses cleanly', () => {
+  assert.deepEqual(parseOrderScriptResponse(''), { ok: true });
+  assert.deepEqual(parseOrderScriptResponse('{"status":"success","row":2}'), { ok: true });
+  assert.deepEqual(
+    parseOrderScriptResponse('{"status":"error","message":"Sheet tidak ditemukan"}'),
+    { ok: false, message: 'Sheet tidak ditemukan' }
+  );
 });
 
 test('filterMenuItems filters by category and search text', () => {

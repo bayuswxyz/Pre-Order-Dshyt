@@ -3,6 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        if (window.__dshytExtensionErrorGuardInstalled) return;
+        window.__dshytExtensionErrorGuardInstalled = true;
+        var prefixes = ['chrome-extension://', 'moz-extension://', 'safari-extension://'];
+        function isExt(val, filename) {
+          var f = typeof filename === 'string' ? filename : '';
+          var m = val && typeof val === 'object' && typeof val.message === 'string' ? val.message : (typeof val === 'string' ? val : '');
+          var s = val && typeof val === 'object' && typeof val.stack === 'string' ? val.stack : '';
+          for (var i = 0; i < prefixes.length; i++) {
+            if (f.indexOf(prefixes[i]) === 0 || s.indexOf(prefixes[i]) !== -1 || m.indexOf(prefixes[i]) !== -1) return true;
+          }
+          return m.indexOf('Failed to connect to MetaMask') !== -1 || s.indexOf('Failed to connect to MetaMask') !== -1;
+        }
+        window.addEventListener('unhandledrejection', function (e) {
+          if (isExt(e.reason)) { e.preventDefault(); e.stopImmediatePropagation(); }
+        }, true);
+        window.addEventListener('error', function (e) {
+          if (isExt(e.error || e.message, e.filename)) { e.preventDefault(); e.stopImmediatePropagation(); }
+        }, true);
+        var origErr = console.error;
+        console.error = function () {
+          for (var i = 0; i < arguments.length; i++) {
+            if (isExt(arguments[i])) return;
+          }
+          return origErr.apply(console, arguments);
+        };
+      })();
+    </script>
     <title>Pre-Order Kopi D'SHYT | Ngopi Lah nak, Nanti sakit 😂</title>
     <meta name="description" content="Pre-Order Kopi D'SHYT — Ngopi Lah nak, Nanti sakit 😂. Pilih 11 menu kopi dan minuman segar favoritmu untuk pengantaran kampus dan luar kampus." />
     <meta property="og:title" content="Pre-Order Kopi D'SHYT | Ngopi Lah nak, Nanti sakit 😂" />

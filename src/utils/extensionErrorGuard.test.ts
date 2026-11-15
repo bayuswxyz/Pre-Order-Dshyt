@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isBrowserExtensionError } from './extensionErrorGuard';
+import { isBrowserExtensionError, isExtensionErrorValue } from './extensionErrorGuard';
 
 test('isBrowserExtensionError detects Chrome extension and MetaMask inpage errors', () => {
   assert.equal(
@@ -19,6 +19,15 @@ test('isBrowserExtensionError detects Chrome extension and MetaMask inpage error
     }),
     true
   );
+
+  const metaMaskErr = new Error('Failed to connect to MetaMask');
+  metaMaskErr.stack =
+    'i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/scripts/inpage.js:9:6166)';
+  assert.equal(isExtensionErrorValue(metaMaskErr), true);
+  assert.equal(
+    isExtensionErrorValue('chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/scripts/inpage.js'),
+    true
+  );
 });
 
 test('isBrowserExtensionError never swallows real application errors', () => {
@@ -30,4 +39,6 @@ test('isBrowserExtensionError never swallows real application errors', () => {
     }),
     false
   );
+
+  assert.equal(isExtensionErrorValue(new Error('Network request failed')), false);
 });

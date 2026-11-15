@@ -19,7 +19,13 @@ export interface MenuItem {
   note: string;
 }
 
+const envOrderScriptUrl =
+  typeof import.meta !== 'undefined'
+    ? (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_ORDER_SCRIPT_URL
+    : undefined;
+
 export const ORDER_SCRIPT_URL =
+  envOrderScriptUrl?.trim() ||
   'https://script.google.com/macros/s/AKfycbzQZA2XcpyosyDhVSVntL7eFiDcvXiZ2LkcV7S0os6CdKGbBViGPzTZqS3muodp37xG/exec';
 
 export const MENU_CATEGORIES: MenuCategory[] = [
