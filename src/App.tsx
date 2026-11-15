@@ -183,7 +183,7 @@ export default function App() {
                   Pre-Order Harian · Kampus &amp; Sekitar
                 </p>
                 <h1 className="mt-3 font-[family-name:var(--font-display)] text-[clamp(2.25rem,4vw,3.5rem)] font-bold leading-[1.08] tracking-tight text-[#1A1614] [text-wrap:balance]">
-                  Ngopi dulu, panik kemudian.
+                  Ngopi Lah nak, Nanti sakit 😂
                 </h1>
                 <p className="mt-4 max-w-[54ch] text-base leading-relaxed text-[#5E544E]">
                   Pilih 11 menu favoritmu di bawah ini — mulai dari espresso pouch praktis,
@@ -391,7 +391,7 @@ export default function App() {
       <footer className="border-t border-[#E7E2DA] bg-[#FAF8F5] py-8">
         <div className="mx-auto flex max-w-[1280px] flex-col items-start justify-between gap-3 px-4 text-xs text-[#786D65] sm:flex-row sm:items-center sm:px-6 lg:px-8">
           <p className="font-medium text-[#5E544E]">
-            Kopi D&apos;SHYT — Ngopi dulu, panik kemudian.
+            Kopi D&apos;SHYT — Ngopi Lah nak, Nanti sakit 😂
           </p>
           <p>Pre-order harian untuk pengantaran area kampus &amp; kos sekitar.</p>
         </div>
