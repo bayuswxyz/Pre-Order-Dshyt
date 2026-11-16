@@ -13,6 +13,7 @@ import {
   calculateCartTotals,
   decrementMenuItemLatestVariant,
   filterMenuItems,
+  formatOrderSubmitError,
   getMenuQuantityInCart,
   parseOrderScriptResponse,
   updateCartVariantQuantity,
@@ -26,6 +27,7 @@ import { generateOrderReference } from './utils/payment';
 import { playTransactionSuccessSound, unlockAudioContext } from './utils/sound';
 import { MenuCard } from './components/MenuCard';
 import { CheckoutPanel } from './components/CheckoutPanel';
+import { OrderConfirmationModal } from './components/OrderConfirmationModal';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { CustomizeMenuModal } from './components/CustomizeMenuModal';
 import { DriveProofsModal } from './components/DriveProofsModal';
@@ -36,9 +38,8 @@ const INITIAL_FORM: OrderFormInput = {
   whatsapp: '',
   pengiriman: 'Delivery (Kampus)',
   alamat: '',
-  metodePembayaran: 'Cash',
   catatan: '',
-  paymentProof: null,
+  metodePembayaran: 'Cash',
 };
 
 export default function App() {
@@ -52,6 +53,7 @@ export default function App() {
   >({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState<OrderSubmissionPayload | null>(null);
   const [submittedReceipt, setSubmittedReceipt] = useState<OrderSubmissionPayload | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDriveModal, setShowDriveModal] = useState(false);
@@ -104,7 +106,7 @@ export default function App() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitError(null);
 
@@ -115,13 +117,26 @@ export default function App() {
     }
 
     setFieldErrors({});
+    setPendingOrder(validation.payload);
+  }
+
+  function handleCancelOrderConfirm() {
+    if (isSubmitting) return;
+    setPendingOrder(null);
+    setSubmitError(null);
+  }
+
+  async function handleConfirmOrderSubmit() {
+    if (!pendingOrder || isSubmitting) return;
+
+    setSubmitError(null);
     setIsSubmitting(true);
     const audioCtx = unlockAudioContext();
 
     try {
       const response = await fetch(ORDER_SCRIPT_URL, {
         method: 'POST',
-        body: JSON.stringify(buildOrderRequestBody(validation.payload)),
+        body: JSON.stringify(buildOrderRequestBody(pendingOrder)),
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       });
 
@@ -135,20 +150,15 @@ export default function App() {
         throw new Error(scriptResult.message || 'Database error');
       }
 
-      const finalReceipt: OrderSubmissionPayload = scriptResult.buktiPembayaran
-        ? { ...validation.payload, buktiPembayaran: scriptResult.buktiPembayaran }
-        : validation.payload;
-
       playTransactionSuccessSound(audioCtx);
-      setSubmittedReceipt(finalReceipt);
+      setSubmittedReceipt(pendingOrder);
+      setPendingOrder(null);
       setShowSuccessModal(true);
       setCart({});
       setForm(INITIAL_FORM);
       setDraftReference(generateOrderReference());
-    } catch {
-      setSubmitError(
-        'Gagal mengirim pesanan. Periksa koneksi internet Anda lalu coba kirim ulang.'
-      );
+    } catch (error) {
+      setSubmitError(formatOrderSubmitError(error, pendingOrder.metodePembayaran));
     } finally {
       setIsSubmitting(false);
     }
@@ -287,9 +297,9 @@ export default function App() {
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-[#9A3412]">02. Lokasi &amp; Bayar</p>
+              <p className="text-xs font-semibold text-[#9A3412]">02. Pengiriman &amp; Pembayaran</p>
               <p className="mt-1 text-sm text-[#5E544E]">
-                Pilih delivery atau ambil di tempat, lalu bayar via QRIS atau Cash / COD.
+                Pilih pengantaran dan metode bayar (Cash atau QR / QRIS) untuk konfirmasi admin.
               </p>
             </div>
             <div>
@@ -409,7 +419,6 @@ export default function App() {
             <CheckoutPanel
               cart={cart}
               form={form}
-              previewReference={draftReference}
               fieldErrors={fieldErrors}
               submitError={submitError}
               isSubmitting={isSubmitting}
@@ -462,6 +471,14 @@ export default function App() {
         item={customizingItem}
         onClose={() => setCustomizingItem(null)}
         onConfirm={handleConfirmCustomize}
+      />
+
+      <OrderConfirmationModal
+        pendingOrder={pendingOrder}
+        isSubmitting={isSubmitting}
+        submitError={submitError}
+        onCancel={handleCancelOrderConfirm}
+        onConfirm={handleConfirmOrderSubmit}
       />
 
       <OrderSuccessModal

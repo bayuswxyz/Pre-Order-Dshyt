@@ -1,16 +1,14 @@
-import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
+import { type FormEvent } from 'react';
 import {
   AlertCircle,
   Banknote,
   CheckCircle2,
-  ImagePlus,
   Loader2,
   Minus,
   Plus,
   QrCode,
   ShoppingBag,
   Trash2,
-  X,
 } from 'lucide-react';
 import {
   calculateCartTotals,
@@ -22,18 +20,11 @@ import {
   type OrderFormInput,
   type OrderSubmissionPayload,
 } from '../utils/order';
-import {
-  formatFileSize,
-  formatPaymentMethodLabel,
-  readPaymentProofAsBase64,
-  type UploadedPaymentProof,
-} from '../utils/payment';
-import { QrPaymentCard } from './QrPaymentCard';
+import { formatPaymentMethodLabel } from '../utils/payment';
 
 interface CheckoutPanelProps {
   cart: CartState;
   form: OrderFormInput;
-  previewReference: string;
   fieldErrors: Partial<Record<keyof OrderFormInput | 'cart', string>>;
   submitError: string | null;
   isSubmitting: boolean;
@@ -48,7 +39,6 @@ interface CheckoutPanelProps {
 export function CheckoutPanel({
   cart,
   form,
-  previewReference,
   fieldErrors,
   submitError,
   isSubmitting,
@@ -61,40 +51,6 @@ export function CheckoutPanel({
 }: CheckoutPanelProps) {
   const totals = calculateCartTotals(cart);
   const deliveryConfig = getDeliveryFieldConfig(form.pengiriman);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [isReadingFile, setIsReadingFile] = useState(false);
-  const [fileReadError, setFileReadError] = useState<string | null>(null);
-
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setFileReadError(null);
-    setIsReadingFile(true);
-
-    try {
-      const proof: UploadedPaymentProof = await readPaymentProofAsBase64(file);
-      onFieldChange('paymentProof', proof);
-    } catch (error) {
-      onFieldChange('paymentProof', null);
-      setFileReadError(
-        error instanceof Error ? error.message : 'Gagal memproses file bukti transfer.'
-      );
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    } finally {
-      setIsReadingFile(false);
-    }
-  }
-
-  function handleRemoveProof() {
-    setFileReadError(null);
-    onFieldChange('paymentProof', null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }
 
   if (submittedReceipt) {
     return (
@@ -154,36 +110,9 @@ export function CheckoutPanel({
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-[#786D65]">Status Bayar</dt>
-            <dd className="font-semibold text-right text-[#15803D]">
-              {submittedReceipt.statusPembayaran}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4">
             <dt className="text-[#786D65]">Kode Referensi</dt>
             <dd className="font-mono text-right text-[#1A1614] tabular-nums">
               {submittedReceipt.kodeReferensi}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-[#786D65]">Bukti Pembayaran</dt>
-            <dd className="font-mono text-xs text-right text-[#1A1614] truncate max-w-[200px]">
-              {submittedReceipt.metodePembayaran === 'QR' ? (
-                submittedReceipt.buktiPembayaran.startsWith('http') ? (
-                  <a
-                    href={submittedReceipt.buktiPembayaran}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-sans font-semibold text-[#9A3412] underline hover:text-[#C2410C]"
-                  >
-                    Lihat di Drive ({submittedReceipt.fileName || 'Bukti QR'})
-                  </a>
-                ) : (
-                  submittedReceipt.fileName || 'Tersimpan di folder bukti pembayaran'
-                )
-              ) : (
-                submittedReceipt.buktiPembayaran || '-'
-              )}
             </dd>
           </div>
           <div className="pt-3 border-t border-[#EFEAE2]">
@@ -195,27 +124,12 @@ export function CheckoutPanel({
             </dd>
           </div>
           <div className="flex items-center justify-between pt-3 border-t border-[#EFEAE2]">
-            <dt className="font-semibold text-[#1A1614]">Total Pembayaran</dt>
+            <dt className="font-semibold text-[#1A1614]">Total</dt>
             <dd className="font-mono text-lg font-bold text-[#9A3412] tabular-nums">
               {submittedReceipt.total}
             </dd>
           </div>
         </dl>
-
-        {submittedReceipt.metodePembayaran === 'QR' ? (
-          <div className="mt-5 rounded-lg border border-[#D8E2D8] bg-[#F5F9F5] p-3.5 text-xs leading-relaxed text-[#1E4620]">
-            Bukti pembayaran QR (<span className="font-mono">{submittedReceipt.fileName}</span>)
-            sudah terkirim dan akan disimpan di Google Drive. Status pesanan:{' '}
-            <span className="font-semibold">{submittedReceipt.statusPembayaran}</span>.
-          </div>
-        ) : (
-          <div className="mt-5 rounded-lg border border-[#E7E2DA] bg-[#FAF8F5] p-3.5 text-xs leading-relaxed text-[#5E544E]">
-            Status pembayaran: <span className="font-semibold text-[#1A1614]">Pending</span> (Bukti:{' '}
-            <span className="font-mono font-semibold text-[#1A1614]">-</span>). Siapkan uang tunai
-            sebesar <span className="font-mono font-bold text-[#1A1614]">{submittedReceipt.total}</span>{' '}
-            untuk dibayarkan saat pesanan tiba / diambil.
-          </div>
-        )}
 
         <button
           type="button"
@@ -227,8 +141,6 @@ export function CheckoutPanel({
       </section>
     );
   }
-
-  const proofError = fileReadError || fieldErrors.paymentProof;
 
   return (
     <section
@@ -448,7 +360,7 @@ export function CheckoutPanel({
           />
         </div>
 
-        {/* Metode Pembayaran: Cash OR QR */}
+        {/* Pilihan Metode Pembayaran (tercatat di Spreadsheet untuk konfirmasi admin) */}
         <div className="pt-1">
           <span
             id="payment-method-label"
@@ -464,28 +376,27 @@ export function CheckoutPanel({
             <button
               type="button"
               role="radio"
-              aria-checked={form.metodePembayaran === 'Cash'}
+              aria-checked={(form.metodePembayaran ?? 'Cash') === 'Cash'}
               data-testid="payment-cash-btn"
-              onClick={() => {
-                setFileReadError(null);
-                onFieldChange('metodePembayaran', 'Cash');
-              }}
+              onClick={() => onFieldChange('metodePembayaran', 'Cash')}
               className={`flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors cursor-pointer ${
-                form.metodePembayaran === 'Cash'
+                (form.metodePembayaran ?? 'Cash') === 'Cash'
                   ? 'border-[#C2410C] bg-[#FFF8F3] text-[#1A1614]'
                   : 'border-[#DDD6CC] bg-[#FAF8F5] text-[#5E544E] hover:border-[#C2410C]/45 hover:bg-white'
               }`}
             >
               <Banknote
                 className={`h-4 w-4 shrink-0 mt-0.5 ${
-                  form.metodePembayaran === 'Cash' ? 'text-[#C2410C]' : 'text-[#786D65]'
+                  (form.metodePembayaran ?? 'Cash') === 'Cash'
+                    ? 'text-[#C2410C]'
+                    : 'text-[#786D65]'
                 }`}
                 aria-hidden="true"
               />
               <div className="min-w-0">
                 <p className="text-sm font-semibold leading-tight text-[#1A1614]">Cash</p>
                 <p className="mt-0.5 text-[11px] leading-snug text-[#786D65]">
-                  Bayar di tempat (Pending)
+                  Bayar di tempat
                 </p>
               </div>
             </button>
@@ -511,124 +422,27 @@ export function CheckoutPanel({
               <div className="min-w-0">
                 <p className="text-sm font-semibold leading-tight text-[#1A1614]">QR / QRIS</p>
                 <p className="mt-0.5 text-[11px] leading-snug text-[#786D65]">
-                  Scan &amp; unggah bukti
+                  Via chat admin WA
                 </p>
               </div>
             </button>
           </div>
 
-          {form.metodePembayaran === 'Cash' ? (
-            <div
-              data-testid="payment-cash-info"
-              className="mt-2.5 rounded-lg border border-[#E7E2DA] bg-[#FAF8F5] px-3.5 py-2.5 text-xs leading-relaxed text-[#5E544E]"
-            >
-              Status pembayaran tercatat sebagai <span className="font-semibold text-[#1A1614]">Pending</span>{' '}
-              (kolom bukti diisi <span className="font-mono font-semibold text-[#1A1614]">-</span>). Siapkan
-              uang tunai{' '}
-              <span className="font-mono font-semibold text-[#1A1614]">
-                {totals.totalPrice > 0 ? totals.formattedTotal : 'sesuai total pesanan'}
-              </span>{' '}
-              saat pesanan diterima.
-            </div>
-          ) : (
-            <div className="mt-2.5 space-y-2.5">
-              <QrPaymentCard
-                formattedAmount={totals.formattedTotal}
-                reference={previewReference}
-                compact
-              />
-
-              {/* Upload Bukti Transfer / Screenshot QRIS */}
-              <div
-                className={`rounded-xl border p-3.5 ${
-                  proofError
-                    ? 'border-[#DC2626] bg-[#FEF2F2]/60'
-                    : 'border-[#E7E2DA] bg-[#FAF8F5]'
-                }`}
-              >
-                <label
-                  htmlFor="payment-proof-input"
-                  className="block text-xs font-semibold text-[#1A1614]"
-                >
-                  Unggah Bukti Transfer / Screenshot QRIS
-                </label>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-[#5E544E]">
-                  Setelah scan QRIS di atas, unggah screenshot pembayaran agar pesanan segera
-                  dikonfirmasi.
-                </p>
-
-                <input
-                  ref={fileInputRef}
-                  id="payment-proof-input"
-                  data-testid="payment-proof-input"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="sr-only"
-                />
-
-                {!form.paymentProof ? (
-                  <button
-                    type="button"
-                    disabled={isReadingFile}
-                    onClick={() => fileInputRef.current?.click()}
-                    data-testid="upload-proof-btn"
-                    className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#C2410C]/55 bg-white px-3.5 py-3 text-xs font-semibold text-[#9A3412] transition-colors hover:bg-[#FFF8F3] cursor-pointer"
-                  >
-                    {isReadingFile ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                        <span>Memproses gambar...</span>
-                      </>
-                    ) : (
-                      <>
-                        <ImagePlus className="h-4 w-4" aria-hidden="true" />
-                        <span>Pilih Screenshot Bukti Pembayaran</span>
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <div
-                    data-testid="payment-proof-preview"
-                    className="mt-2.5 flex items-center gap-3 rounded-lg border border-[#E7E2DA] bg-white p-2.5"
-                  >
-                    <img
-                      src={form.paymentProof.previewUrl}
-                      alt="Pratinjau bukti pembayaran QRIS"
-                      className="h-12 w-12 shrink-0 rounded-md border border-[#EFEAE2] object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-[#1A1614] truncate">
-                        {form.paymentProof.fileName}
-                      </p>
-                      <p className="mt-0.5 font-mono text-[11px] text-[#15803D]">
-                        Siap dikirim · {formatFileSize(form.paymentProof.fileSize)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleRemoveProof}
-                      aria-label="Hapus bukti pembayaran"
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#E7E2DA] bg-[#FAF8F5] text-[#5E544E] hover:bg-[#EFEAE2] hover:text-[#B91C1C] cursor-pointer"
-                    >
-                      <X className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </div>
-                )}
-
-                {proofError && (
-                  <p className="mt-1.5 text-xs font-medium text-[#B91C1C]">{proofError}</p>
-                )}
-              </div>
-            </div>
-          )}
+          <p
+            data-testid="payment-method-hint"
+            className="mt-2 rounded-lg border border-[#E7E2DA] bg-[#FAF8F5] px-3.5 py-2 text-xs leading-relaxed text-[#5E544E]"
+          >
+            {form.metodePembayaran === 'QR'
+              ? 'Admin akan mengirim kode QRIS lewat chat WhatsApp setelah pesanan masuk.'
+              : 'Siapkan uang tunai saat pesanan diantar atau diambil di tempat.'}
+          </p>
         </div>
 
         <button
           type="submit"
-          disabled={isSubmitting || isReadingFile}
+          disabled={isSubmitting}
           data-testid="submit-order-btn"
-          className="mt-1 inline-flex w-full h-11 items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412] disabled:opacity-65 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] cursor-pointer"
+          className="mt-2 inline-flex w-full h-11 items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412] disabled:opacity-65 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] cursor-pointer"
         >
           {isSubmitting ? (
             <>

@@ -1,10 +1,3 @@
-/**
- * Google Apps Script Web App for "Database Pesanan Kopi D'SHYT"
- *
- * Columns (A - L):
- * Timestamp | Nama | WhatsApp | Pesanan | Total | Pengiriman | Alamat | Catatan | Metode Pembayaran | Status Pembayaran | Bukti Pembayaran | Preview Gambar
- */
-
 var SHEET_HEADERS = [
   'Timestamp',
   'Nama',
@@ -40,6 +33,7 @@ function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheets()[0];
 
+    // Buat header jika spreadsheet masih kosong
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(SHEET_HEADERS);
     } else if (!sheet.getRange(1, 12).getValue()) {
@@ -59,14 +53,20 @@ function doPost(e) {
       if (data.fileData) {
         var savedFile = saveProofToDrive_(
           data.fileData,
-          data.fileType || 'image/png',
-          data.fileName || 'bukti-qr.png',
+          data.fileType || 'image/jpeg',
+          data.fileName || 'bukti-qr.jpg',
           data.nama || 'Pelanggan',
           data.driveFolderId || DRIVE_FOLDER_ID,
           data.driveFolderName || DRIVE_FOLDER_NAME
         );
         buktiUrl = savedFile.url;
         previewFormula = '=IMAGE("' + savedFile.directImageUrl + '")';
+      } else if (data.buktiPembayaran && String(data.buktiPembayaran).indexOf('http') === 0) {
+        buktiUrl = String(data.buktiPembayaran);
+        var idMatch = buktiUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        previewFormula = idMatch
+          ? '=IMAGE("https://lh3.googleusercontent.com/d/' + idMatch[1] + '")'
+          : '-';
       } else {
         buktiUrl = '-';
         previewFormula = '-';
@@ -78,7 +78,8 @@ function doPost(e) {
       previewFormula = '-';
     }
 
-    var rowValues = [
+    // Masukkan data baris baru ke spreadsheet
+    sheet.appendRow([
       data.timestamp ? new Date(data.timestamp) : new Date(),
       data.nama || '',
       data.whatsapp || '',
@@ -91,13 +92,11 @@ function doPost(e) {
       statusPembayaran,
       buktiUrl,
       previewFormula,
-    ];
+    ]);
 
-    sheet.appendRow(rowValues);
     var newRow = sheet.getLastRow();
-
     if (previewFormula !== '-') {
-      sheet.setRowHeight(newRow, 96);
+      sheet.setRowHeight(newRow, 96); // Atur tinggi baris agar preview gambar muat
     }
 
     return jsonResponse_({
@@ -117,18 +116,33 @@ function doPost(e) {
   }
 }
 
+function getOrCreateNamedDriveFolder_(preferredName) {
+  var folderName = preferredName || DRIVE_FOLDER_NAME;
+  var folders = DriveApp.getFoldersByName(folderName);
+  return folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+}
+
 function getTargetDriveFolder_(preferredId, preferredName) {
   if (preferredId) {
     try {
       return DriveApp.getFolderById(preferredId);
     } catch (idErr) {
-      // Fallback ke pencarian / pembuatan folder berdasarkan nama "bukti pembayaran"
+      // Fallback jika ID gagal dicari
     }
   }
 
-  var folderName = preferredName || DRIVE_FOLDER_NAME;
-  var folders = DriveApp.getFoldersByName(folderName);
-  return folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+  return getOrCreateNamedDriveFolder_(preferredName);
+}
+
+function createFileWithFallback_(blob, preferredFolderId, preferredFolderName) {
+  var folder = getTargetDriveFolder_(preferredFolderId, preferredFolderName);
+  try {
+    return folder.createFile(blob);
+  } catch (createErr) {
+    // Jika akun tidak punya akses tulis ke folder ID tujuan, fallback ke folder 'bukti pembayaran' di Drive sendiri
+    var fallbackFolder = getOrCreateNamedDriveFolder_(preferredFolderName);
+    return fallbackFolder.createFile(blob);
+  }
 }
 
 function saveProofToDrive_(
@@ -139,28 +153,47 @@ function saveProofToDrive_(
   preferredFolderId,
   preferredFolderName
 ) {
-  var folder = getTargetDriveFolder_(preferredFolderId, preferredFolderName);
+  var rawStr = String(fileData || '').trim();
+  var commaIndex = rawStr.indexOf(',');
+  var headerMime = '';
+  if (commaIndex !== -1) {
+    var header = rawStr.slice(0, commaIndex);
+    var mimeMatch = /^data:([^;]+);base64$/i.exec(header);
+    if (mimeMatch && mimeMatch[1]) {
+      headerMime = mimeMatch[1];
+    }
+  }
 
-  var base64Part = fileData.indexOf(',') !== -1 ? fileData.split(',')[1] : fileData;
-  var bytes = Utilities.base64Decode(base64Part.trim());
+  var base64Part = (commaIndex !== -1 ? rawStr.slice(commaIndex + 1) : rawStr).replace(/\s+/g, '');
+  var resolvedMime = mimeType && mimeType !== 'application/octet-stream'
+    ? mimeType
+    : headerMime || 'image/jpeg';
+
+  var bytes = Utilities.base64Decode(base64Part);
   var safeCustomer = String(customerName || 'customer').replace(/[^a-zA-Z0-9_-]/g, '_');
   var timestampTag = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyyMMdd-HHmmss');
-  var finalName = timestampTag + '_' + safeCustomer + '_' + fileName;
+  var finalName = timestampTag + '_' + safeCustomer + '_' + (fileName || 'bukti-qr.jpg');
 
-  var blob = Utilities.newBlob(bytes, mimeType, finalName);
-  var file = folder.createFile(blob);
+  var blob = Utilities.newBlob(bytes, resolvedMime, finalName);
+  var file = createFileWithFallback_(blob, preferredFolderId, preferredFolderName);
 
   try {
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   } catch (shareErr) {
-    // Some Google Workspace domains restrict public link sharing; keep private Drive URL.
+    // Lanjutkan jika ada batasan akses sharing
   }
 
   return {
     id: file.getId(),
     url: file.getUrl(),
-    directImageUrl: 'https://drive.google.com/uc?export=view&id=' + file.getId(),
+    directImageUrl: 'https://lh3.googleusercontent.com/d/' + file.getId(),
   };
+}
+
+function authorizePermissions() {
+  SpreadsheetApp.getActiveSpreadsheet().getName();
+  var folder = getTargetDriveFolder_(DRIVE_FOLDER_ID, DRIVE_FOLDER_NAME);
+  Logger.log('Izin Spreadsheet & Google Drive aktif. Folder: ' + folder.getName());
 }
 
 function jsonResponse_(payload) {

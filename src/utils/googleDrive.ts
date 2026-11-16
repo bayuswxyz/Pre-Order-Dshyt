@@ -187,6 +187,54 @@ export async function uploadFileToDrive(
   return (await response.json()) as DriveFileRecord;
 }
 
+export async function uploadProofDataUrlToDrive(
+  accessToken: string,
+  options: {
+    dataUrl: string;
+    fileName: string;
+    mimeType: string;
+    folderId?: string;
+  },
+  fetchFn: typeof fetch = fetch
+): Promise<DriveFileRecord> {
+  const trimmed = options.dataUrl.trim();
+  const commaIdx = trimmed.indexOf(',');
+  const base64 = (commaIdx !== -1 ? trimmed.slice(commaIdx + 1) : trimmed).replace(/\s+/g, '');
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i += 1) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  const { body, contentType } = buildDriveMultipartBody({
+    fileName: options.fileName || `bukti-qr-${Date.now()}.jpg`,
+    mimeType: options.mimeType || 'image/jpeg',
+    contentBytes: bytes,
+    folderId: options.folderId ?? PAYMENT_PROOF_DRIVE_FOLDER_ID,
+  });
+
+  const url =
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,mimeType,size,modifiedTime,webViewLink,thumbnailLink,iconLink';
+
+  const response = await fetchFn(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': contentType,
+    },
+    body,
+  });
+
+  if (response.status === 401) {
+    throw new DriveUnauthorizedError();
+  }
+  if (!response.ok) {
+    throw new Error(await parseDriveErrorMessage(response));
+  }
+
+  return (await response.json()) as DriveFileRecord;
+}
+
 export async function renameDriveFile(
   accessToken: string,
   fileId: string,

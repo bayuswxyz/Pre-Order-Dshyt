@@ -1,11 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  estimateBase64ByteLength,
   extractBase64FromDataUrl,
   formatFileSize,
   formatPaymentMethodLabel,
   generateOrderReference,
   getPaymentStatusForMethod,
+  inferImageMimeType,
+  isImageProofFile,
+  normalizeProofFileNameForMime,
 } from './payment';
 
 test('generateOrderReference creates stable DSHYT reference codes', () => {
@@ -23,6 +27,25 @@ test('extractBase64FromDataUrl strips data URI header for Google Apps Script', (
 
   const raw = extractBase64FromDataUrl('YWJjMTIz');
   assert.equal(raw.base64, 'YWJjMTIz');
+});
+
+test('isImageProofFile and inferImageMimeType handle mobile files with empty MIME type', () => {
+  assert.equal(isImageProofFile({ type: 'image/png', name: 'qris.png' }), true);
+  assert.equal(isImageProofFile({ type: '', name: 'Screenshot_20261116.jpg' }), true);
+  assert.equal(isImageProofFile({ type: 'application/octet-stream', name: 'IMG_1024.HEIC' }), true);
+  assert.equal(isImageProofFile({ type: 'application/pdf', name: 'nota.pdf' }), false);
+  assert.equal(isImageProofFile({ type: '', name: 'dokumen.pdf' }), false);
+
+  assert.equal(inferImageMimeType({ type: '', name: 'foto.PNG' }), 'image/png');
+  assert.equal(inferImageMimeType({ type: '', name: 'foto.webp' }), 'image/webp');
+  assert.equal(inferImageMimeType({ type: 'image/jpeg', name: 'foto' }), 'image/jpeg');
+});
+
+test('normalizeProofFileNameForMime and estimateBase64ByteLength work accurately', () => {
+  assert.equal(normalizeProofFileNameForMime('screenshot.png', 'image/jpeg'), 'screenshot.jpg');
+  assert.equal(normalizeProofFileNameForMime('bukti.png', 'image/png'), 'bukti.png');
+  assert.equal(estimateBase64ByteLength('YWJj'), 3); // "abc"
+  assert.equal(estimateBase64ByteLength('YWI='), 2); // "ab"
 });
 
 test('getPaymentStatusForMethod and formatPaymentMethodLabel map QR and Cash', () => {

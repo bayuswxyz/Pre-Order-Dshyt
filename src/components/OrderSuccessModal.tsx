@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Banknote, CheckCircle2, Coffee, Heart, QrCode, X } from 'lucide-react';
+import { CheckCircle2, Coffee, Heart, X } from 'lucide-react';
 import type { OrderSubmissionPayload } from '../utils/order';
 import { formatPaymentMethodLabel } from '../utils/payment';
 
@@ -92,41 +92,17 @@ export function OrderSuccessModal({
           </div>
           <div className="flex items-start justify-between gap-4 py-2.5 border-b border-[#F0ECE6]">
             <span className="text-[#786D65] shrink-0">Pembayaran</span>
-            <span className="font-medium text-right text-[#1A1614]">
-              {formatPaymentMethodLabel(receipt.metodePembayaran)} ·{' '}
-              <span className="text-[#15803D] font-semibold">{receipt.statusPembayaran}</span>
+            <span className="font-semibold text-right text-[#1A1614]">
+              {formatPaymentMethodLabel(receipt.metodePembayaran)}
             </span>
           </div>
           <div className="flex items-center justify-between gap-4 pt-2.5">
-            <span className="font-semibold text-[#1A1614]">Total Pembayaran</span>
+            <span className="font-semibold text-[#1A1614]">Total</span>
             <span className="font-mono text-lg font-bold tabular-nums text-[#9A3412]">
               {receipt.total}
             </span>
           </div>
         </div>
-
-        {receipt.metodePembayaran === 'QR' ? (
-          <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-[#D8E2D8] bg-[#F5F9F5] p-3.5 text-xs leading-relaxed text-[#1E4620]">
-            <QrCode className="h-4 w-4 shrink-0 text-[#15803D] mt-0.5" aria-hidden="true" />
-            <span>
-              Bukti transfer QR (<span className="font-mono">{receipt.fileName}</span>) berhasil
-              dikirim ke Google Drive. Status:{' '}
-              <span className="font-semibold">{receipt.statusPembayaran}</span>.
-            </span>
-          </div>
-        ) : (
-          <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-[#E7E2DA] bg-white p-3.5 text-xs leading-relaxed text-[#5E544E]">
-            <Banknote className="h-4 w-4 shrink-0 text-[#C2410C] mt-0.5" aria-hidden="true" />
-            <span>
-              Pembayaran <span className="font-semibold text-[#1A1614]">Cash / COD</span> (Status:{' '}
-              <span className="font-semibold text-[#1A1614]">{receipt.statusPembayaran}</span>,
-              Bukti: <span className="font-mono font-semibold text-[#1A1614]">-</span>). Siapkan
-              uang sejumlah{' '}
-              <span className="font-mono font-bold text-[#1A1614]">{receipt.total}</span> saat
-              pesanan diterima.
-            </span>
-          </div>
-        )}
 
         <div className="mt-4 flex flex-col sm:flex-row gap-3">
           <button

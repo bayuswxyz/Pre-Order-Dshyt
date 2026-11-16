@@ -56,9 +56,9 @@ export interface OrderFormInput {
   whatsapp: string;
   pengiriman: DeliveryType;
   alamat: string;
-  metodePembayaran: PaymentMethod;
   catatan: string;
-  paymentProof: UploadedPaymentProof | null;
+  metodePembayaran?: PaymentMethod;
+  paymentProof?: UploadedPaymentProof | null;
 }
 
 export interface OrderSubmissionPayload {
@@ -367,11 +367,6 @@ export function validateOrderForm(
         : 'Alamat lengkap kos atau rumah wajib diisi.';
   }
 
-  if (metodePembayaran === 'QR' && !form.paymentProof?.fileData) {
-    fieldErrors.paymentProof =
-      'Silakan unggah screenshot / bukti transfer QR terlebih dahulu.';
-  }
-
   const firstError = Object.values(fieldErrors)[0];
   if (firstError) {
     return {
@@ -383,6 +378,7 @@ export function validateOrderForm(
 
   const isQr = metodePembayaran === 'QR';
   const proof = isQr ? form.paymentProof : null;
+  const hasProofData = Boolean(proof?.fileData);
 
   return {
     valid: true,
@@ -398,7 +394,7 @@ export function validateOrderForm(
       catatan,
       metodePembayaran,
       statusPembayaran,
-      buktiPembayaran: isQr ? '' : '-',
+      buktiPembayaran: hasProofData ? '' : '-',
       fileData: proof?.fileData ?? '',
       fileName: proof?.fileName ?? '',
       fileType: proof?.fileType ?? '',
@@ -425,7 +421,7 @@ export function buildOrderRequestBody(
     catatan: payload.catatan,
     metodePembayaran: isCash ? 'Cash' : 'QR',
     statusPembayaran: isCash ? 'Pending' : payload.statusPembayaran,
-    buktiPembayaran: isCash ? '-' : payload.buktiPembayaran,
+    buktiPembayaran: isCash ? '-' : payload.buktiPembayaran || '-',
     driveFolderId: PAYMENT_PROOF_DRIVE_FOLDER_ID,
     driveFolderName: PAYMENT_PROOF_DRIVE_FOLDER_NAME,
     fileData: isCash ? '' : payload.fileData,
@@ -462,6 +458,92 @@ export function parseOrderScriptResponse(rawText: string): {
           : undefined,
     };
   } catch {
+    const lower = trimmed.toLowerCase();
+    const isHtml =
+      trimmed.startsWith('<') ||
+      lower.includes('<!doctype') ||
+      lower.includes('<html') ||
+      lower.includes('<body');
+
+    const isAuthError =
+      lower.includes('authorization is required') ||
+      lower.includes('requires authorization') ||
+      lower.includes('otorisasi') ||
+      lower.includes('accounts.google.com');
+
+    if (isAuthError) {
+      return {
+        ok: false,
+        message:
+          'Apps Script belum memiliki izin akses Google Drive. Buka Apps Script, jalankan/deploy ulang (New version), lalu izinkan akses Drive.',
+      };
+    }
+
+    const exceptionMatch = /(?:Exception|TypeError|ReferenceError|SyntaxError|Error):\s*([^\n<]{1,180})/i.exec(
+      trimmed
+    );
+    if (exceptionMatch) {
+      return {
+        ok: false,
+        message: `Apps Script error: ${exceptionMatch[1].trim()}`,
+      };
+    }
+
+    if (
+      isHtml ||
+      lower.includes('script function not found') ||
+      lower.includes('sorry, unable to open the file')
+    ) {
+      return {
+        ok: false,
+        message:
+          'Server Apps Script mengembalikan halaman error (bukan JSON). Pastikan Web App di-deploy sebagai Anyone dan sudah diotorisasi.',
+      };
+    }
+
     return { ok: true };
   }
+}
+
+export function isDriveRelatedErrorMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('drive') ||
+    lower.includes('folder') ||
+    lower.includes('createfile') ||
+    lower.includes('access denied') ||
+    lower.includes('izin') ||
+    lower.includes('permission') ||
+    lower.includes('otorisasi')
+  );
+}
+
+export function formatOrderSubmitError(
+  error: unknown,
+  metodePembayaran: PaymentMethod
+): string {
+  const rawMessage = error instanceof Error ? error.message.trim() : '';
+  const lower = rawMessage.toLowerCase();
+  const isNetworkFetchError =
+    !rawMessage ||
+    lower === 'failed to fetch' ||
+    lower.includes('networkerror') ||
+    lower.includes('load failed') ||
+    lower.includes('fetch');
+
+  if (isNetworkFetchError) {
+    if (metodePembayaran === 'QR') {
+      return 'Gagal mengirim pesanan QR ke server. Periksa koneksi internet Anda, pastikan ukuran gambar tidak terlalu besar, atau pastikan Apps Script sudah mengizinkan akses Google Drive.';
+    }
+    return 'Gagal mengirim pesanan. Periksa koneksi internet Anda lalu coba kirim ulang.';
+  }
+
+  if (
+    lower.includes('you do not have permission to call driveapp') ||
+    lower.includes('required permissions')
+  ) {
+    return 'Izin Google Drive di Google Apps Script belum diaktifkan oleh pemilik script. Buka editor Apps Script, jalankan fungsi authorizePermissions lalu klik Izinkan (Allow), kemudian Deploy ulang (New version).';
+  }
+
+  return `Gagal mengirim pesanan: ${rawMessage}`;
 }

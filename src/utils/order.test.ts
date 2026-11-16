@@ -13,9 +13,11 @@ import {
   EXTRA_SHOT_PRICE,
   filterMenuItems,
   formatCustomizationSummary,
+  formatOrderSubmitError,
   formatRupiah,
   getDeliveryFieldConfig,
   getMenuQuantityInCart,
+  isDriveRelatedErrorMessage,
   parseOrderScriptResponse,
   updateCartVariantQuantity,
   validateOrderForm,
@@ -139,17 +141,24 @@ test('validateOrderForm enforces cart, customer fields, QR proof upload, and bui
     2
   ); // (13.000 + 9.000) * 2 = 44.000
 
-  const missingQrProof = validateOrderForm(cart, {
-    nama: 'Bayu Satrio',
-    whatsapp: '081234567890',
-    pengiriman: 'Delivery (Luar Kampus)',
-    alamat: 'Jl. Gerilya No. 12',
-    metodePembayaran: 'QR',
-    catatan: 'Titip satpam',
-    paymentProof: null,
-  });
-  assert.equal(missingQrProof.valid, false);
-  assert.ok(missingQrProof.fieldErrors.paymentProof);
+  const qrWithoutUpload = validateOrderForm(
+    cart,
+    {
+      nama: 'Bayu Satrio',
+      whatsapp: '081234567890',
+      pengiriman: 'Delivery (Luar Kampus)',
+      alamat: 'Jl. Gerilya No. 12',
+      metodePembayaran: 'QR',
+      catatan: 'Titip satpam',
+      paymentProof: null,
+    },
+    'DSHYT-QRONLY'
+  );
+  assert.equal(qrWithoutUpload.valid, true);
+  assert.equal(qrWithoutUpload.payload?.metodePembayaran, 'QR');
+  assert.equal(qrWithoutUpload.payload?.statusPembayaran, 'Menunggu Konfirmasi');
+  assert.equal(qrWithoutUpload.payload?.buktiPembayaran, '-');
+  assert.equal(qrWithoutUpload.payload?.fileData, '');
 
   const validQr = validateOrderForm(
     cart,
@@ -188,7 +197,7 @@ test('validateOrderForm enforces cart, customer fields, QR proof upload, and bui
     catatan: 'Titip di pos satpam',
     metodePembayaran: 'QR',
     statusPembayaran: 'Menunggu Konfirmasi',
-    buktiPembayaran: '',
+    buktiPembayaran: '-',
     driveFolderId: PAYMENT_PROOF_DRIVE_FOLDER_ID,
     driveFolderName: PAYMENT_PROOF_DRIVE_FOLDER_NAME,
     fileData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
@@ -221,6 +230,19 @@ test('validateOrderForm enforces cart, customer fields, QR proof upload, and bui
   assert.equal(cashBody.fileName, '');
   assert.equal(cashBody.fileType, '');
   assert.equal(cashBody.alamat, "Ambil langsung di booth Kopi D'SHYT");
+
+  // Submitting without metodePembayaran / paymentProof (UI simplified without payment selector) succeeds cleanly
+  const simplifiedOrder = validateOrderForm(cart, {
+    nama: 'Bayu Satrio',
+    whatsapp: '081234567890',
+    pengiriman: 'Delivery (Kampus)',
+    alamat: 'Gedung Kuliah Lt. 2',
+    catatan: '',
+  });
+  assert.equal(simplifiedOrder.valid, true);
+  assert.equal(simplifiedOrder.payload?.metodePembayaran, 'Cash');
+  assert.equal(simplifiedOrder.payload?.statusPembayaran, 'Pending');
+  assert.equal(simplifiedOrder.payload?.buktiPembayaran, '-');
 });
 
 test('parseOrderScriptResponse detects JSON error and Drive URL responses cleanly', () => {
@@ -241,6 +263,46 @@ test('parseOrderScriptResponse detects JSON error and Drive URL responses cleanl
   assert.deepEqual(
     parseOrderScriptResponse('{"status":"error","message":"Sheet tidak ditemukan"}'),
     { ok: false, message: 'Sheet tidak ditemukan' }
+  );
+  const authHtml = parseOrderScriptResponse(
+    '<!DOCTYPE html><html><body>Authorization is required to perform that action.</body></html>'
+  );
+  assert.equal(authHtml.ok, false);
+  assert.match(authHtml.message || '', /Google Drive|otorisasi/i);
+
+  const genericHtml = parseOrderScriptResponse(
+    '<html><head><title>Error</title></head><body>Script function not found: doPost</body></html>'
+  );
+  assert.equal(genericHtml.ok, false);
+  assert.match(genericHtml.message || '', /halaman error/i);
+
+  const exceptionText = parseOrderScriptResponse(
+    'Exception: You do not have permission to call DriveApp.getFolderById'
+  );
+  assert.equal(exceptionText.ok, false);
+  assert.match(exceptionText.message || '', /DriveApp/);
+
+  assert.equal(isDriveRelatedErrorMessage('Exception: Access denied on DriveApp.createFile'), true);
+  assert.equal(isDriveRelatedErrorMessage('Sheet tidak ditemukan'), false);
+
+  assert.match(
+    formatOrderSubmitError(new Error('DriveApp permission denied'), 'QR'),
+    /DriveApp permission denied/
+  );
+  assert.match(
+    formatOrderSubmitError(
+      new Error('You do not have permission to call DriveApp.getFoldersByName.'),
+      'QR'
+    ),
+    /authorizePermissions/
+  );
+  assert.match(
+    formatOrderSubmitError(new TypeError('Failed to fetch'), 'QR'),
+    /pesanan QR/
+  );
+  assert.match(
+    formatOrderSubmitError(new TypeError('Failed to fetch'), 'Cash'),
+    /koneksi internet/
   );
 });
 
