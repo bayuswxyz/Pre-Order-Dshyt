@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import {
   calculateCartTotals,
-  formatCustomizationSummary,
+  formatCartEntryOptions,
   formatRupiah,
   getDeliveryFieldConfig,
   type CartState,
@@ -177,20 +177,24 @@ export function CheckoutPanel({
           </p>
         ) : (
           <ul className="space-y-3.5" data-testid="cart-items-list">
-            {totals.entries.map((entry) => (
-              <li
-                key={entry.variantKey}
-                className="flex items-start justify-between gap-3 text-sm pb-3 border-b border-[#F5F1EB] last:border-b-0 last:pb-0"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-[#1A1614]">{entry.name}</p>
-                  <p className="mt-0.5 text-xs leading-snug text-[#5E544E]">
-                    {formatCustomizationSummary(entry.customization)}
-                  </p>
-                  <p className="mt-1 font-mono text-xs text-[#786D65] tabular-nums">
-                    {formatRupiah(entry.price)} × {entry.qty}
-                  </p>
-                </div>
+            {totals.entries.map((entry) => {
+              const optionSummary = formatCartEntryOptions(entry);
+              return (
+                <li
+                  key={entry.variantKey}
+                  className="flex items-start justify-between gap-3 text-sm pb-3 border-b border-[#F5F1EB] last:border-b-0 last:pb-0"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-[#1A1614]">{entry.name}</p>
+                    {optionSummary && (
+                      <p className="mt-0.5 text-xs leading-snug text-[#5E544E]">
+                        {optionSummary}
+                      </p>
+                    )}
+                    <p className="mt-1 font-mono text-xs text-[#786D65] tabular-nums">
+                      {formatRupiah(entry.price)} × {entry.qty}
+                    </p>
+                  </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
                   <div className="flex items-center gap-1.5">
                     <button
@@ -218,7 +222,8 @@ export function CheckoutPanel({
                   </span>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
 

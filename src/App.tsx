@@ -66,6 +66,17 @@ export default function App() {
     [activeCategory, searchQuery]
   );
 
+  function handleOpenCustomizeOrAdd(item: MenuItem) {
+    if (item.disableCustomization) {
+      setSubmittedReceipt(null);
+      setSubmitError(null);
+      setFieldErrors((prev) => ({ ...prev, cart: undefined }));
+      setCart((prev) => addCustomizedCartItem(prev, item));
+      return;
+    }
+    setCustomizingItem(item);
+  }
+
   function handleConfirmCustomize(
     item: MenuItem,
     customization: DrinkCustomization,
@@ -407,7 +418,7 @@ export default function App() {
                     key={item.id}
                     item={item}
                     quantity={getMenuQuantityInCart(cart, item.id)}
-                    onOpenCustomize={setCustomizingItem}
+                    onOpenCustomize={handleOpenCustomizeOrAdd}
                     onDecrementItem={handleDecrementMenuItem}
                   />
                 ))}
@@ -468,7 +479,7 @@ export default function App() {
       </footer>
 
       <CustomizeMenuModal
-        item={customizingItem}
+        item={customizingItem?.disableCustomization ? null : customizingItem}
         onClose={() => setCustomizingItem(null)}
         onConfirm={handleConfirmCustomize}
       />

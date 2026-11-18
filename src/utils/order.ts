@@ -47,6 +47,7 @@ export interface CartEntry {
   basePrice: number;
   price: number;
   customization: DrinkCustomization;
+  disableCustomization?: boolean;
 }
 
 export type CartState = Record<string, CartEntry>;
@@ -161,17 +162,33 @@ export function formatCustomizationSummary(customization: DrinkCustomization): s
   return parts.join(', ');
 }
 
+export function formatCartEntryOptions(
+  entry: Pick<CartEntry, 'customization' | 'disableCustomization'>
+): string | null {
+  if (entry.disableCustomization) {
+    return null;
+  }
+  return formatCustomizationSummary(entry.customization);
+}
+
 export function addCustomizedCartItem(
   cart: CartState,
-  item: Pick<MenuItem, 'id' | 'name' | 'cartKey' | 'price'>,
+  item: Pick<MenuItem, 'id' | 'name' | 'cartKey' | 'price' | 'disableCustomization'>,
   customizationInput: Partial<DrinkCustomization> = DEFAULT_CUSTOMIZATION,
   quantity: number = 1
 ): CartState {
   const safeQty = Math.max(1, Math.floor(quantity));
-  const customization = normalizeCustomization(customizationInput);
-  const variantKey = buildCartVariantKey(item.cartKey, customization);
+  const disableCustomization = Boolean(item.disableCustomization);
+  const customization = disableCustomization
+    ? { ...DEFAULT_CUSTOMIZATION }
+    : normalizeCustomization(customizationInput);
+  const variantKey = disableCustomization
+    ? item.cartKey
+    : buildCartVariantKey(item.cartKey, customization);
   const existing = cart[variantKey];
-  const unitPrice = calculateCustomizedUnitPrice(item.price, customization);
+  const unitPrice = disableCustomization
+    ? item.price
+    : calculateCustomizedUnitPrice(item.price, customization);
 
   return {
     ...cart,
@@ -184,6 +201,7 @@ export function addCustomizedCartItem(
       basePrice: item.price,
       price: unitPrice,
       customization,
+      disableCustomization,
     },
   };
 }
@@ -256,9 +274,14 @@ export function calculateCartTotals(cart: CartState): CartTotals {
   for (const entry of entries) {
     totalItems += entry.qty;
     totalPrice += entry.qty * entry.price;
-    const customLabel = formatCustomizationSummary(entry.customization);
-    summaryParts.push(`${entry.cartKey} (${entry.qty}x - ${customLabel})`);
-    payloadParts.push(`${entry.cartKey} (${entry.qty}x: ${customLabel})`);
+    const customLabel = formatCartEntryOptions(entry);
+    if (customLabel) {
+      summaryParts.push(`${entry.cartKey} (${entry.qty}x - ${customLabel})`);
+      payloadParts.push(`${entry.cartKey} (${entry.qty}x: ${customLabel})`);
+    } else {
+      summaryParts.push(`${entry.cartKey} (${entry.qty}x)`);
+      payloadParts.push(`${entry.cartKey} (${entry.qty}x)`);
+    }
   }
 
   return {

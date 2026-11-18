@@ -12,6 +12,7 @@ import {
   decrementMenuItemLatestVariant,
   EXTRA_SHOT_PRICE,
   filterMenuItems,
+  formatCartEntryOptions,
   formatCustomizationSummary,
   formatOrderSubmitError,
   formatRupiah,
@@ -32,17 +33,17 @@ test('formatRupiah formats Indonesian currency accurately', () => {
 });
 
 test('addCustomizedCartItem separates variants and adds extra shot price accurately', () => {
-  const espresso = MENU_ITEMS[0]; // 10.000
-  const coffeeMilk = MENU_ITEMS[10]; // 13.000
+  const americano = MENU_ITEMS[1]; // 12.000 (customizable)
+  const coffeeMilk = MENU_ITEMS[10]; // 13.000 (customizable)
 
   let cart: CartState = {};
-  cart = addCustomizedCartItem(cart, espresso, {
+  cart = addCustomizedCartItem(cart, americano, {
     ice: 'Normal Ice',
     sugar: 'Normal Sugar',
     extraShot: false,
     note: '',
   });
-  cart = addCustomizedCartItem(cart, espresso, {
+  cart = addCustomizedCartItem(cart, americano, {
     ice: 'Less Ice',
     sugar: 'Less Sugar',
     extraShot: true,
@@ -60,23 +61,55 @@ test('addCustomizedCartItem separates variants and adds extra shot price accurat
     2
   );
 
-  assert.equal(getMenuQuantityInCart(cart, espresso.id), 2);
+  assert.equal(getMenuQuantityInCart(cart, americano.id), 2);
   assert.equal(getMenuQuantityInCart(cart, coffeeMilk.id), 2);
 
   const totals = calculateCartTotals(cart);
   assert.equal(totals.totalItems, 4);
-  // 10.000 + (10.000 + 9.000) + (13.000 * 2) = 55.000
-  assert.equal(totals.totalPrice, 10000 + (10000 + EXTRA_SHOT_PRICE) + 26000);
-  assert.equal(totals.formattedTotal, 'Rp 55.000');
+  // 12.000 + (12.000 + 9.000) + (13.000 * 2) = 59.000
+  assert.equal(totals.totalPrice, 12000 + (12000 + EXTRA_SHOT_PRICE) + 26000);
+  assert.equal(totals.formattedTotal, 'Rp 59.000');
   assert.match(totals.payloadPesanan, /Less Ice, Less Sugar, Extra Shot Espresso, Catatan: Es dipisah/);
 
-  // Decrement latest espresso variant removes the second variant cleanly
-  cart = decrementMenuItemLatestVariant(cart, espresso.id);
-  assert.equal(getMenuQuantityInCart(cart, espresso.id), 1);
+  // Decrement latest americano variant removes the second variant cleanly
+  cart = decrementMenuItemLatestVariant(cart, americano.id);
+  assert.equal(getMenuQuantityInCart(cart, americano.id), 1);
 
   const remainingKey = Object.keys(cart).find((k) => cart[k].menuId === coffeeMilk.id)!;
   cart = updateCartVariantQuantity(cart, remainingKey, -2);
   assert.equal(getMenuQuantityInCart(cart, coffeeMilk.id), 0);
+});
+
+test('espresso pouch disables customization options and formats cleanly without ice/sugar/extra shot', () => {
+  const espressoPouch = MENU_ITEMS.find((item) => item.id === 'espresso-pouch');
+  assert.ok(espressoPouch);
+  assert.equal(espressoPouch.disableCustomization, true);
+
+  let cart: CartState = {};
+  cart = addCustomizedCartItem(
+    cart,
+    espressoPouch,
+    {
+      ice: 'Less Ice',
+      sugar: 'No Sugar',
+      extraShot: true,
+      note: 'Ignored note',
+    },
+    2
+  );
+
+  const entry = cart[espressoPouch.cartKey];
+  assert.ok(entry);
+  assert.equal(entry.qty, 2);
+  assert.equal(entry.price, espressoPouch.price);
+  assert.equal(entry.disableCustomization, true);
+  assert.equal(formatCartEntryOptions(entry), null);
+
+  const totals = calculateCartTotals(cart);
+  assert.equal(totals.totalItems, 2);
+  assert.equal(totals.totalPrice, 20000);
+  assert.equal(totals.summaryText, 'Espresso Pouch (2x)');
+  assert.equal(totals.payloadPesanan, 'Espresso Pouch (2x)');
 });
 
 test('formatCustomizationSummary formats ice, sugar, extra shot, and note cleanly', () => {
@@ -308,8 +341,14 @@ test('parseOrderScriptResponse detects JSON error and Drive URL responses cleanl
 
 test('filterMenuItems filters by category and search text', () => {
   assert.equal(MENU_ITEMS.length, 11);
-  const citrus = filterMenuItems(MENU_ITEMS, 'Citrus & Sparkling', '');
-  assert.equal(citrus.length, 4);
+  const signature = filterMenuItems(MENU_ITEMS, 'Signature', '');
+  assert.equal(signature.length, 3);
+
+  const coffee = filterMenuItems(MENU_ITEMS, 'Coffee', '');
+  assert.equal(coffee.length, 5);
+
+  const nonCoffee = filterMenuItems(MENU_ITEMS, 'Non Coffee', '');
+  assert.equal(nonCoffee.length, 3);
 
   const orangeSearch = filterMenuItems(MENU_ITEMS, 'Semua', 'orange');
   assert.equal(orangeSearch.length, 3);

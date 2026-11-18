@@ -1,4 +1,4 @@
-export type MenuCategory = 'Semua' | 'Signature & Susu' | 'Espresso & Black' | 'Citrus & Sparkling';
+export type MenuCategory = 'Semua' | 'Signature' | 'Coffee' | 'Non Coffee';
 
 export type FallbackImageKey =
   | 'espresso'
@@ -17,6 +17,7 @@ export interface MenuItem {
   fallbackKey: FallbackImageKey;
   category: Exclude<MenuCategory, 'Semua'>;
   note: string;
+  disableCustomization?: boolean;
 }
 
 const envOrderScriptUrl =
@@ -30,9 +31,9 @@ export const ORDER_SCRIPT_URL =
 
 export const MENU_CATEGORIES: MenuCategory[] = [
   'Semua',
-  'Signature & Susu',
-  'Espresso & Black',
-  'Citrus & Sparkling',
+  'Signature',
+  'Coffee',
+  'Non Coffee',
 ];
 
 export const MENU_ITEMS: MenuItem[] = [
@@ -43,8 +44,9 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 10000,
     imageUrl: '/assets/aistudio/DSHYT_Espresso_Pouch__d2a07a57.png',
     fallbackKey: 'espresso',
-    category: 'Espresso & Black',
+    category: 'Coffee',
     note: 'Ekstraksi espresso pekat dalam kemasan pouch praktis siap seduh.',
+    disableCustomization: true,
   },
   {
     id: 'americano-original',
@@ -53,7 +55,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 12000,
     imageUrl: '/assets/aistudio/Americano_Original_Dshyt.jpg',
     fallbackKey: 'espresso',
-    category: 'Espresso & Black',
+    category: 'Coffee',
     note: 'Espresso double shot dengan air mineral dingin, bersih dan bertenaga.',
   },
   {
@@ -63,7 +65,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 13000,
     imageUrl: '/assets/aistudio/Americano_Lemon_Dshyt.jpg',
     fallbackKey: 'citrus',
-    category: 'Citrus & Sparkling',
+    category: 'Coffee',
     note: 'Americano segar berpadu perasan lemon cerah untuk fokus seharian.',
   },
   {
@@ -73,7 +75,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 12000,
     imageUrl: '/assets/aistudio/Orange_Blanc_Dshyt.jpg',
     fallbackKey: 'citrus',
-    category: 'Citrus & Sparkling',
+    category: 'Non Coffee',
     note: 'Perpaduan orange blanc segar dengan creamy blend non-kopi yang lembut dan manis.',
   },
   {
@@ -83,7 +85,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 18000,
     imageUrl: '/assets/aistudio/Anti_Blanc_Dshyt.jpg',
     fallbackKey: 'milkCoffee',
-    category: 'Signature & Susu',
+    category: 'Signature',
     note: 'Racikan susu putih creamy andalan dengan karakter manis seimbang.',
   },
   {
@@ -93,7 +95,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 10000,
     imageUrl: '/assets/aistudio/Chocolate_Vanilla.jpg',
     fallbackKey: 'chocVanilla',
-    category: 'Signature & Susu',
+    category: 'Non Coffee',
     note: 'Cokelat pekat non-kopi berpadu aroma vanila halus dan susu segar.',
   },
   {
@@ -103,7 +105,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 15000,
     imageUrl: '/assets/aistudio/Coffee_Vanilla_Milk.jpg',
     fallbackKey: 'milkCoffee',
-    category: 'Signature & Susu',
+    category: 'Coffee',
     note: 'Kopi susu dingin dengan sentuhan sirup vanila lembut yang nyaman.',
   },
   {
@@ -113,7 +115,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 18000,
     imageUrl: '/assets/aistudio/Mochachino_Dshyt.jpg',
     fallbackKey: 'chocVanilla',
-    category: 'Signature & Susu',
+    category: 'Coffee',
     note: 'Keseimbangan klasik antara cokelat kaya rasa, susu, dan espresso.',
   },
   {
@@ -123,7 +125,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 15000,
     imageUrl: '/assets/aistudio/Orange_Anti_Blanc_Dshyt.jpg',
     fallbackKey: 'orangeCoffee',
-    category: 'Citrus & Sparkling',
+    category: 'Signature',
     note: 'Perpaduan orange blanc segar dengan espresso dan creamy blend yang unik.',
   },
   {
@@ -133,7 +135,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 10000,
     imageUrl: '/assets/aistudio/Orange_Sparkling.jpg',
     fallbackKey: 'citrus',
-    category: 'Citrus & Sparkling',
+    category: 'Non Coffee',
     note: 'Soda jeruk dingin dengan buih segar untuk mengusir kantuk siang.',
   },
   {
@@ -143,7 +145,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 13000,
     imageUrl: '/assets/aistudio/Coffee_Milk_Dshyt.jpg',
     fallbackKey: 'milkCoffee',
-    category: 'Signature & Susu',
+    category: 'Signature',
     note: 'Kopi susu signature harian dengan rasa manis pas dan body mantap.',
   },
 ];

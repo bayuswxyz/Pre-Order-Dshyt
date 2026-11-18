@@ -120,139 +120,141 @@ export function CustomizeMenuModal({
           </div>
         </div>
 
-        <div className="mt-4 space-y-4">
-          {/* Level Es */}
-          <div>
-            <span
-              id="ice-level-label"
-              className="block text-sm font-semibold text-[#1A1614] mb-2"
-            >
-              Level Es
-            </span>
-            <div
-              role="radiogroup"
-              aria-labelledby="ice-level-label"
-              className="grid grid-cols-3 gap-2"
-            >
-              {ICE_LEVELS.map((option) => {
-                const active = ice === option;
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    data-testid={`ice-${option.toLowerCase().replace(/\s+/g, '-')}`}
-                    onClick={() => setIce(option)}
-                    className={`h-10 rounded-lg border px-2.5 text-xs font-semibold transition-colors cursor-pointer ${
-                      active
-                        ? 'border-[#C2410C] bg-[#FFF8F3] text-[#9A3412]'
-                        : 'border-[#DDD6CC] bg-white text-[#5E544E] hover:border-[#C2410C]/45 hover:text-[#1A1614]'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Level Gula */}
-          <div>
-            <span
-              id="sugar-level-label"
-              className="block text-sm font-semibold text-[#1A1614] mb-2"
-            >
-              Level Gula
-            </span>
-            <div
-              role="radiogroup"
-              aria-labelledby="sugar-level-label"
-              className="grid grid-cols-3 gap-2"
-            >
-              {SUGAR_LEVELS.map((option) => {
-                const active = sugar === option;
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    data-testid={`sugar-${option.toLowerCase().replace(/\s+/g, '-')}`}
-                    onClick={() => setSugar(option)}
-                    className={`h-10 rounded-lg border px-2.5 text-xs font-semibold transition-colors cursor-pointer ${
-                      active
-                        ? 'border-[#C2410C] bg-[#FFF8F3] text-[#9A3412]'
-                        : 'border-[#DDD6CC] bg-white text-[#5E544E] hover:border-[#C2410C]/45 hover:text-[#1A1614]'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Extra Shot Espresso */}
-          <div>
-            <span className="block text-sm font-semibold text-[#1A1614] mb-2">
-              Tambahan (Opsional)
-            </span>
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={extraShot}
-              data-testid="extra-shot-toggle"
-              onClick={() => setExtraShot((prev) => !prev)}
-              className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3.5 text-left transition-colors cursor-pointer ${
-                extraShot
-                  ? 'border-[#C2410C] bg-[#FFF8F3]'
-                  : 'border-[#DDD6CC] bg-white hover:border-[#C2410C]/45'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span
-                  className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                    extraShot ? 'bg-[#C2410C] text-white' : 'bg-[#EFEAE2] text-[#5E544E]'
-                  }`}
-                >
-                  {extraShot ? (
-                    <Sparkles className="h-4 w-4" aria-hidden="true" />
-                  ) : (
-                    <Coffee className="h-4 w-4" aria-hidden="true" />
-                  )}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[#1A1614]">Extra Shot Espresso</p>
-                  <p className="text-xs text-[#786D65]">
-                    Tambahan 1 shot espresso untuk rasa kopi lebih mantap
-                  </p>
-                </div>
-              </div>
-              <span className="font-mono text-xs font-bold tabular-nums text-[#9A3412] whitespace-nowrap shrink-0">
-                +{formatRupiah(EXTRA_SHOT_PRICE)}
+        {!item.disableCustomization && (
+          <div className="mt-4 space-y-4">
+            {/* Level Es */}
+            <div>
+              <span
+                id="ice-level-label"
+                className="block text-sm font-semibold text-[#1A1614] mb-2"
+              >
+                Level Es
               </span>
-            </button>
-          </div>
+              <div
+                role="radiogroup"
+                aria-labelledby="ice-level-label"
+                className="grid grid-cols-3 gap-2"
+              >
+                {ICE_LEVELS.map((option) => {
+                  const active = ice === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      data-testid={`ice-${option.toLowerCase().replace(/\s+/g, '-')}`}
+                      onClick={() => setIce(option)}
+                      className={`h-10 rounded-lg border px-2.5 text-xs font-semibold transition-colors cursor-pointer ${
+                        active
+                          ? 'border-[#C2410C] bg-[#FFF8F3] text-[#9A3412]'
+                          : 'border-[#DDD6CC] bg-white text-[#5E544E] hover:border-[#C2410C]/45 hover:text-[#1A1614]'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-          {/* Catatan Khusus */}
-          <div>
-            <label
-              htmlFor="custom-drink-note"
-              className="block text-sm font-semibold text-[#1A1614] mb-1.5"
-            >
-              Catatan Khusus (Opsional)
-            </label>
-            <textarea
-              id="custom-drink-note"
-              rows={2}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Contoh: Es dipisah, minta sedotan kertas, dll."
-              className="w-full rounded-lg border border-[#DDD6CC] bg-white px-3.5 py-2.5 text-sm text-[#1A1614] placeholder:text-[#9C9189] transition-colors focus:border-[#C2410C] focus:outline-none resize-none"
-            />
+            {/* Level Gula */}
+            <div>
+              <span
+                id="sugar-level-label"
+                className="block text-sm font-semibold text-[#1A1614] mb-2"
+              >
+                Level Gula
+              </span>
+              <div
+                role="radiogroup"
+                aria-labelledby="sugar-level-label"
+                className="grid grid-cols-3 gap-2"
+              >
+                {SUGAR_LEVELS.map((option) => {
+                  const active = sugar === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      data-testid={`sugar-${option.toLowerCase().replace(/\s+/g, '-')}`}
+                      onClick={() => setSugar(option)}
+                      className={`h-10 rounded-lg border px-2.5 text-xs font-semibold transition-colors cursor-pointer ${
+                        active
+                          ? 'border-[#C2410C] bg-[#FFF8F3] text-[#9A3412]'
+                          : 'border-[#DDD6CC] bg-white text-[#5E544E] hover:border-[#C2410C]/45 hover:text-[#1A1614]'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Extra Shot Espresso */}
+            <div>
+              <span className="block text-sm font-semibold text-[#1A1614] mb-2">
+                Tambahan (Opsional)
+              </span>
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={extraShot}
+                data-testid="extra-shot-toggle"
+                onClick={() => setExtraShot((prev) => !prev)}
+                className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3.5 text-left transition-colors cursor-pointer ${
+                  extraShot
+                    ? 'border-[#C2410C] bg-[#FFF8F3]'
+                    : 'border-[#DDD6CC] bg-white hover:border-[#C2410C]/45'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                      extraShot ? 'bg-[#C2410C] text-white' : 'bg-[#EFEAE2] text-[#5E544E]'
+                    }`}
+                  >
+                    {extraShot ? (
+                      <Sparkles className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Coffee className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[#1A1614]">Extra Shot Espresso</p>
+                    <p className="text-xs text-[#786D65]">
+                      Tambahan 1 shot espresso untuk rasa kopi lebih mantap
+                    </p>
+                  </div>
+                </div>
+                <span className="font-mono text-xs font-bold tabular-nums text-[#9A3412] whitespace-nowrap shrink-0">
+                  +{formatRupiah(EXTRA_SHOT_PRICE)}
+                </span>
+              </button>
+            </div>
+
+            {/* Catatan Khusus */}
+            <div>
+              <label
+                htmlFor="custom-drink-note"
+                className="block text-sm font-semibold text-[#1A1614] mb-1.5"
+              >
+                Catatan Khusus (Opsional)
+              </label>
+              <textarea
+                id="custom-drink-note"
+                rows={2}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Contoh: Es dipisah, minta sedotan kertas, dll."
+                className="w-full rounded-lg border border-[#DDD6CC] bg-white px-3.5 py-2.5 text-sm text-[#1A1614] placeholder:text-[#9C9189] transition-colors focus:border-[#C2410C] focus:outline-none resize-none"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Footer: Qty + Add CTA */}
         <div className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-4 border-t border-[#E7E2DA]">
